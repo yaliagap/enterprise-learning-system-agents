@@ -1,0 +1,68 @@
+{
+  "_metadata": {
+    "synthetic": true,
+    "generated": "2026-06-11",
+    "version": "1.0",
+    "description": "Team-level learning aggregates for manager insights — synthetic data"
+  },
+  "teams": [
+    {
+      "team_id": "TEAM-A",
+      "team_name": "Cloud Platform Engineering",
+      "snapshot_date": "2026-06-11",
+      "members": ["EMP-001", "EMP-002", "EMP-003", "EMP-004", "EMP-005"],
+      "member_count": 5,
+      "avg_readiness_score": 59,
+      "readiness_distribution": {
+        "above_80": ["EMP-004"],
+        "60_to_80": ["EMP-002"],
+        "40_to_60": ["EMP-001", "EMP-005"],
+        "below_40": ["EMP-003"]
+      },
+      "at_risk": ["EMP-003", "EMP-005"],
+      "at_risk_reasons": {
+        "EMP-003": "Low readiness score (34), short study streak (3 days), no completed certifications. Needs foundational ramp before specialization.",
+        "EMP-005": "Readiness score below target (50), on-call rotation reducing available study time. Progress at risk of stalling."
+      },
+      "cert_coverage": {
+        "AZ-900": {"completed": ["EMP-001", "EMP-002", "EMP-004", "EMP-005"], "in_progress": ["EMP-003"], "not_started": []},
+        "AZ-104": {"completed": ["EMP-002", "EMP-004"], "in_progress": ["EMP-001", "EMP-005"], "not_started": ["EMP-003"]},
+        "AZ-204": {"completed": ["EMP-004"], "in_progress": [], "not_started": ["EMP-001", "EMP-002", "EMP-003", "EMP-005"]},
+        "AZ-305": {"completed": [], "in_progress": ["EMP-004"], "not_started": ["EMP-001", "EMP-002", "EMP-003", "EMP-005"]},
+        "AZ-400": {"completed": [], "in_progress": ["EMP-001", "EMP-005"], "not_started": ["EMP-002", "EMP-003", "EMP-004"]},
+        "DP-203": {"completed": [], "in_progress": ["EMP-002"], "not_started": ["EMP-001", "EMP-003", "EMP-004", "EMP-005"]},
+        "DP-600": {"completed": [], "in_progress": ["EMP-002"], "not_started": ["EMP-001", "EMP-003", "EMP-004", "EMP-005"]},
+        "AI-102": {"completed": [], "in_progress": ["EMP-003"], "not_started": ["EMP-001", "EMP-002", "EMP-004", "EMP-005"]}
+      },
+      "retry_queue": [
+        {
+          "learner_id": "EMP-002",
+          "cert_id": "DP-203",
+          "previous_score": 672,
+          "passing_score": 700,
+          "retry_target_date": "2026-07-01",
+          "priority": "high"
+        }
+      ],
+      "team_capacity_summary": {
+        "avg_meeting_hours_per_week": 14,
+        "avg_focus_hours_per_week": 15.6,
+        "avg_study_capacity_hours_per_day": 2.2,
+        "bottleneck_members": ["EMP-002"],
+        "bottleneck_reason": "EMP-002 has 22h/week meeting load — highest on team. Study windows are constrained to early morning only."
+      },
+      "recommended_team_actions": [
+        "Schedule protected learning time for EMP-003 (junior ramp) — suggest 90-min afternoon blocks 3x/week",
+        "Prioritize EMP-002 retry prep for DP-203 before 2026-07-01 target date",
+        "Consider pairing EMP-004 (senior architect) with EMP-001 and EMP-005 for informal AZ-400 mentoring",
+        "Review on-call rotation for EMP-005 to reduce study schedule fragmentation"
+      ],
+      "trend": {
+        "avg_readiness_30d_ago": 54,
+        "avg_readiness_now": 59,
+        "delta": "+5",
+        "direction": "improving"
+      }
+    }
+  ]
+}

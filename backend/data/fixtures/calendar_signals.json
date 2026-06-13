@@ -1,0 +1,115 @@
+{
+  "_metadata": {
+    "synthetic": true,
+    "generated": "2026-06-11",
+    "version": "1.0",
+    "description": "Work activity and calendar signals per employee — synthetic data for Work IQ grounding layer"
+  },
+  "calendar_signals": [
+    {
+      "learner_id": "EMP-001",
+      "snapshot_week": "2026-06-09",
+      "meeting_hours_per_week": 14,
+      "focus_hours_per_week": 18,
+      "meeting_density": "medium",
+      "focus_time_blocks": ["morning", "late-afternoon"],
+      "free_slots": [
+        "2026-06-09T19:00/21:00",
+        "2026-06-10T07:00/09:00",
+        "2026-06-11T19:00/21:00",
+        "2026-06-12T07:00/09:00",
+        "2026-06-13T18:00/20:00"
+      ],
+      "deep_work_capacity_hours_per_day": 2.5,
+      "top_collaboration_patterns": ["standup", "sprint-planning", "code-review"],
+      "after_hours_activity_pct": 15,
+      "notes": "Moderate meeting load; solid evening study windows available consistently",
+      "preferred_study_days": ["Monday", "Tuesday", "Wednesday", "Thursday"],
+      "session_duration_hours": 2.0
+    },
+    {
+      "learner_id": "EMP-002",
+      "snapshot_week": "2026-06-09",
+      "meeting_hours_per_week": 22,
+      "focus_hours_per_week": 10,
+      "meeting_density": "high",
+      "focus_time_blocks": ["early-morning"],
+      "free_slots": [
+        "2026-06-09T06:00/08:00",
+        "2026-06-10T06:00/07:30",
+        "2026-06-11T06:00/08:00",
+        "2026-06-12T06:00/07:30"
+      ],
+      "deep_work_capacity_hours_per_day": 1.5,
+      "top_collaboration_patterns": ["data-review", "stakeholder-sync", "architecture-review", "sprint-planning", "1-on-1"],
+      "after_hours_activity_pct": 25,
+      "notes": "Meeting-heavy senior engineer; only consistent focus window is early morning 06:00-08:00. Study plan must respect 1.5h/day cap to avoid burnout. Highly motivated for DP-203 retry.",
+      "preferred_study_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      "session_duration_hours": 1.5
+    },
+    {
+      "learner_id": "EMP-003",
+      "snapshot_week": "2026-06-09",
+      "meeting_hours_per_week": 6,
+      "focus_hours_per_week": 20,
+      "meeting_density": "low",
+      "focus_time_blocks": ["afternoon", "evening"],
+      "free_slots": [
+        "2026-06-09T14:00/17:00",
+        "2026-06-10T14:00/17:00",
+        "2026-06-10T19:00/21:00",
+        "2026-06-11T14:00/17:00",
+        "2026-06-12T14:00/17:00",
+        "2026-06-13T14:00/16:00"
+      ],
+      "deep_work_capacity_hours_per_day": 3.0,
+      "top_collaboration_patterns": ["standup", "1-on-1"],
+      "after_hours_activity_pct": 10,
+      "notes": "Junior with very open calendar; has capacity but needs structure and shorter study sessions to build habit. Large afternoon blocks available but attention span limits effective study to 90-minute chunks.",
+      "preferred_study_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      "session_duration_hours": 1.5
+    },
+    {
+      "learner_id": "EMP-004",
+      "snapshot_week": "2026-06-09",
+      "meeting_hours_per_week": 18,
+      "focus_hours_per_week": 14,
+      "meeting_density": "medium",
+      "focus_time_blocks": ["morning"],
+      "free_slots": [
+        "2026-06-09T07:00/09:00",
+        "2026-06-10T07:00/09:00",
+        "2026-06-11T07:00/09:00",
+        "2026-06-12T07:00/09:00",
+        "2026-06-13T07:00/08:30"
+      ],
+      "deep_work_capacity_hours_per_day": 2.0,
+      "top_collaboration_patterns": ["architecture-review", "steering-committee", "design-session", "stakeholder-sync"],
+      "after_hours_activity_pct": 8,
+      "notes": "Senior architect with stable early-morning routine; consistent 2h/day available before meetings load. Study plan should target practice tests and scenario-based reviews aligned with AZ-305 exam domains.",
+      "preferred_study_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      "session_duration_hours": 2.0
+    },
+    {
+      "learner_id": "EMP-005",
+      "snapshot_week": "2026-06-09",
+      "meeting_hours_per_week": 10,
+      "focus_hours_per_week": 16,
+      "meeting_density": "low",
+      "focus_time_blocks": ["evening"],
+      "free_slots": [
+        "2026-06-09T19:00/21:30",
+        "2026-06-10T19:00/21:00",
+        "2026-06-11T19:00/21:30",
+        "2026-06-12T20:00/22:00",
+        "2026-06-13T19:00/21:00"
+      ],
+      "deep_work_capacity_hours_per_day": 2.0,
+      "top_collaboration_patterns": ["standup", "incident-review", "on-call-handoff"],
+      "after_hours_activity_pct": 35,
+      "notes": "On-call rotation creates evening variability; on-call weeks reduce available study time to 1h/day. Study plan should note on-call schedule gaps and use lighter review content during on-call periods.",
+      "preferred_study_days": ["Monday", "Wednesday", "Friday"],
+      "session_duration_hours": 2.0
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "_metadata": {
+    "synthetic": true,
+    "generated": "2026-06-11",
+    "version": "1.0",
+    "description": "Learning resources mapped to Azure certifications — synthetic URLs and content for ChromaDB embedding"
+  },
+  "resources": [
+    {
+      "resource_id": "RES-001",
+      "title": "Azure Fundamentals: Cloud Concepts and Core Services",
+      "type": "learning-path",
+      "cert_ids": ["AZ-900"],
+      "skill_tags": ["cloud-fundamentals", "azure-basics", "governance"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/az-900-describe-cloud-concepts/",
+      "duration_hours": 6,
+      "difficulty": "beginner",
+      "content_summary": "This learning path introduces the core concepts of cloud computing including high availability, scalability, and elasticity. It covers Azure's global infrastructure including regions, availability zones, and resource groups. Learners explore the shared responsibility model and how Azure services align to IaaS, PaaS, and SaaS categories. Cost management tools like Azure Pricing Calculator and TCO Calculator are demonstrated with hands-on exercises.",
+      "last_updated": "2026-01-15"
+    },
+    {
+      "resource_id": "RES-002",
+      "title": "Azure Governance and Compliance for Fundamentals",
+      "type": "documentation",
+      "cert_ids": ["AZ-900"],
+      "skill_tags": ["governance", "compliance", "cost-management", "service-level-agreements"],
+      "url": "https://learn.microsoft.com/en-us/azure/governance/overview",
+      "duration_hours": 3,
+      "difficulty": "beginner",
+      "content_summary": "Comprehensive documentation covering Azure Policy, Azure Blueprints, and Management Groups for enforcing organizational governance at scale. Explains how to define, assign, and manage policies that enforce rules and effects on Azure resources. Covers compliance dashboards, initiative definitions, and audit reporting. Includes worked examples of regulatory compliance frameworks including ISO 27001, SOC 2, and PCI DSS as applied to Azure environments.",
+      "last_updated": "2025-11-20"
+    },
+    {
+      "resource_id": "RES-003",
+      "title": "AZ-104 Administrator: Identity and Access Management",
+      "type": "learning-path",
+      "cert_ids": ["AZ-104"],
+      "skill_tags": ["identity", "administration", "azure-ad", "rbac"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/az-104-manage-identities-governance/",
+      "duration_hours": 10,
+      "difficulty": "intermediate",
+      "content_summary": "Deep-dive into Microsoft Entra ID (formerly Azure Active Directory) covering user accounts, group management, and role-based access control. This path teaches how to configure multi-factor authentication, conditional access policies, and Privileged Identity Management for just-in-time access. Administrative units are covered for delegating management to specific organizational boundaries. Practical labs walk through configuring enterprise applications and managing external identities via B2B collaboration.",
+      "last_updated": "2026-02-10"
+    },
+    {
+      "resource_id": "RES-004",
+      "title": "Azure Networking Fundamentals for Administrators",
+      "type": "lab",
+      "cert_ids": ["AZ-104", "AZ-305"],
+      "skill_tags": ["networking", "virtual-networks", "load-balancing", "vpn"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/az-104-manage-virtual-networks/",
+      "duration_hours": 8,
+      "difficulty": "intermediate",
+      "content_summary": "Hands-on lab series covering Azure Virtual Network design including subnetting, Network Security Groups, and Application Security Groups. Students configure site-to-site VPN gateways and ExpressRoute connections for hybrid connectivity. The lab covers Azure Load Balancer, Application Gateway, and Azure Front Door for traffic distribution and web application firewall policies. DNS configuration, private endpoints, and service endpoints complete the networking foundation required for the AZ-104 exam.",
+      "last_updated": "2026-01-28"
+    },
+    {
+      "resource_id": "RES-005",
+      "title": "Develop Serverless Solutions with Azure Functions",
+      "type": "learning-path",
+      "cert_ids": ["AZ-204"],
+      "skill_tags": ["compute", "serverless", "development", "triggers-bindings"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/az-204-implement-azure-functions/",
+      "duration_hours": 8,
+      "difficulty": "intermediate",
+      "content_summary": "Comprehensive guide to building event-driven serverless applications with Azure Functions. Covers function triggers including HTTP, Timer, Blob Storage, Queue Storage, and Event Grid bindings. Students implement Durable Functions orchestrations with fan-out/fan-in patterns for complex stateful workflows. The path explores deployment models including Consumption plan, Premium plan, and Dedicated hosting, with guidance on cold start mitigation. Includes integration with Azure API Management for exposing functions as managed APIs.",
+      "last_updated": "2026-03-05"
+    },
+    {
+      "resource_id": "RES-006",
+      "title": "Secure Azure Developers: Key Vault and Managed Identities",
+      "type": "documentation",
+      "cert_ids": ["AZ-204", "AZ-400"],
+      "skill_tags": ["security", "key-vault", "managed-identities", "authentication"],
+      "url": "https://learn.microsoft.com/en-us/azure/key-vault/general/developers-guide",
+      "duration_hours": 5,
+      "difficulty": "intermediate",
+      "content_summary": "Security-focused documentation covering Azure Key Vault for secrets, certificates, and cryptographic key management. Explains how to implement managed identities to eliminate credentials from application code and configuration files. Covers certificate rotation automation, access policies versus RBAC model, and private endpoint integration for network isolation. Real-world patterns for injecting secrets into App Service configuration, Container Apps, and Azure Kubernetes Service are demonstrated with code samples in Python, C#, and Java.",
+      "last_updated": "2025-12-15"
+    },
+    {
+      "resource_id": "RES-007",
+      "title": "Implement CI/CD Pipelines with Azure DevOps and GitHub Actions",
+      "type": "learning-path",
+      "cert_ids": ["AZ-400"],
+      "skill_tags": ["ci-cd", "azure-pipelines", "github-actions", "devops"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/az-400-implement-ci-cd/",
+      "duration_hours": 12,
+      "difficulty": "advanced",
+      "content_summary": "End-to-end learning path for designing and implementing continuous integration and continuous delivery pipelines. Covers multi-stage YAML pipelines in Azure DevOps with environments, approvals, and deployment gates. GitHub Actions workflow authoring is compared with Azure Pipelines for polyglot monorepo scenarios. The path includes blue-green and canary deployment strategies, rollback procedures, and feature flags using Azure App Configuration. Security scanning integration with Defender for DevOps and dependency vulnerability assessment round out the DevSecOps coverage.",
+      "last_updated": "2026-02-20"
+    },
+    {
+      "resource_id": "RES-008",
+      "title": "Infrastructure as Code with Bicep and Terraform on Azure",
+      "type": "learning-path",
+      "cert_ids": ["AZ-400", "AZ-305"],
+      "skill_tags": ["infrastructure-as-code", "bicep", "terraform", "compliance"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/fundamentals-bicep/",
+      "duration_hours": 10,
+      "difficulty": "intermediate",
+      "content_summary": "Practical guide to declaring Azure infrastructure as code using both Bicep and Terraform. The path covers Bicep modules, parameter files, and deployment scopes including resource group, subscription, and management group. Terraform provider configuration, state management with Azure Storage, and workspace-based environment separation are thoroughly covered. Students implement policy-as-code to enforce compliance during infrastructure provisioning and integrate IaC deployments into Azure Pipelines with automated validation, what-if analysis, and approval gates.",
+      "last_updated": "2026-01-10"
+    },
+    {
+      "resource_id": "RES-009",
+      "title": "Azure Data Engineering with Synapse Analytics",
+      "type": "learning-path",
+      "cert_ids": ["DP-203"],
+      "skill_tags": ["data-engineering", "azure-synapse", "data-lake", "sql-pool"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/dp-203-azure-synapse-analytics/",
+      "duration_hours": 14,
+      "difficulty": "intermediate",
+      "content_summary": "Comprehensive learning path for designing and implementing data solutions using Azure Synapse Analytics. Covers dedicated SQL pools for enterprise data warehousing, serverless SQL pools for on-demand query over data lake, and Apache Spark pools for big data transformation. Students implement lake database schemas, external tables, and PolyBase for federated querying. Performance tuning through distribution strategies, workload management, and materialized views is addressed. Integration with Azure Machine Learning for in-database scoring completes the analytics workflow.",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "resource_id": "RES-010",
+      "title": "Real-Time Data Ingestion and Stream Analytics",
+      "type": "lab",
+      "cert_ids": ["DP-203"],
+      "skill_tags": ["real-time-ingestion", "stream-analytics", "event-hubs", "kafka"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/dp-203-real-time-analytics/",
+      "duration_hours": 8,
+      "difficulty": "advanced",
+      "content_summary": "Hands-on lab series for building real-time data pipelines using Azure Event Hubs, Azure Stream Analytics, and Azure Data Factory. Students implement Kafka-compatible ingestion patterns, configure capture to Data Lake Storage, and author streaming SQL queries with windowing functions including tumbling, hopping, and session windows. The labs cover late arrival handling, out-of-order event processing, and reference data joins for stream enrichment. Delta Lake format writing and optimistic concurrency for lakehouse architectures are practiced in the final module.",
+      "last_updated": "2026-04-01"
+    },
+    {
+      "resource_id": "RES-011",
+      "title": "Microsoft Fabric Lakehouse Engineering",
+      "type": "learning-path",
+      "cert_ids": ["DP-600"],
+      "skill_tags": ["microsoft-fabric", "lakehouse", "delta-lake", "analytics-engineering"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/dp-600-implement-lakehouse/",
+      "duration_hours": 10,
+      "difficulty": "intermediate",
+      "content_summary": "End-to-end learning path for implementing lakehouses in Microsoft Fabric using OneLake as the unified storage layer. Covers creating and managing lakehouse workspaces, loading data through Dataflow Gen2 and notebooks, and applying the medallion architecture pattern with Bronze, Silver, and Gold layers. Schema evolution, time travel with Delta Lake, and table maintenance operations including OPTIMIZE and VACUUM are practiced. V-Order optimization for Power BI Direct Lake connectivity is explained, along with row-level security for governed data access.",
+      "last_updated": "2026-02-28"
+    },
+    {
+      "resource_id": "RES-012",
+      "title": "Azure AI Services: Vision, Language, and Speech",
+      "type": "learning-path",
+      "cert_ids": ["AI-102"],
+      "skill_tags": ["ai-services", "cognitive-services", "computer-vision", "nlp"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/ai-102-azure-ai-services/",
+      "duration_hours": 12,
+      "difficulty": "intermediate",
+      "content_summary": "Comprehensive path covering Azure AI Services including Computer Vision for image analysis, object detection, and OCR; Language Service for sentiment analysis, named entity recognition, and custom classification; and Speech Service for transcription and synthesis. Students provision multi-service resources, implement client SDKs in Python, and handle authentication with both subscription keys and managed identity. Content Safety API integration for responsible AI filtering is covered. The path includes building a complete intelligent document processing pipeline with Form Recognizer and Language Understanding.",
+      "last_updated": "2026-03-20"
+    },
+    {
+      "resource_id": "RES-013",
+      "title": "Generative AI Solutions with Azure OpenAI Service",
+      "type": "learning-path",
+      "cert_ids": ["AI-102"],
+      "skill_tags": ["openai", "generative-ai", "responsible-ai", "rag-pattern"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/ai-102-azure-openai/",
+      "duration_hours": 10,
+      "difficulty": "advanced",
+      "content_summary": "Advanced learning path for designing and implementing generative AI solutions using Azure OpenAI Service. Covers deploying GPT-4 and embedding models, prompt engineering techniques including few-shot learning and chain-of-thought prompting, and implementing Retrieval-Augmented Generation patterns with Azure AI Search. Students build semantic search indexes, configure chunking strategies, and evaluate answer quality with built-in evaluation metrics. Responsible AI principles including content filtering, jailbreak detection, and groundedness assessment are applied throughout using Azure AI Studio.",
+      "last_updated": "2026-04-15"
+    },
+    {
+      "resource_id": "RES-014",
+      "title": "Azure Well-Architected Framework: Reliability and Performance",
+      "type": "documentation",
+      "cert_ids": ["AZ-305"],
+      "skill_tags": ["architecture", "well-architected-framework", "high-availability", "disaster-recovery"],
+      "url": "https://learn.microsoft.com/en-us/azure/well-architected/",
+      "duration_hours": 8,
+      "difficulty": "advanced",
+      "content_summary": "In-depth documentation covering the Azure Well-Architected Framework pillars with emphasis on Reliability and Performance Efficiency. The Reliability pillar covers failure mode analysis, target SLAs, redundancy patterns including active-active and active-passive configurations, chaos engineering with Azure Chaos Studio, and business continuity planning. Performance Efficiency covers autoscaling strategies, caching with Azure Cache for Redis, CDN integration, and performance testing baselines. Architecture review checklists and Advisor integration provide actionable remediation guidance.",
+      "last_updated": "2026-01-05"
+    },
+    {
+      "resource_id": "RES-015",
+      "title": "Practice Assessment: AZ-104 Azure Administrator",
+      "type": "practice-test",
+      "cert_ids": ["AZ-104"],
+      "skill_tags": ["administration", "networking", "storage", "identity", "monitoring"],
+      "url": "https://learn.microsoft.com/en-us/credentials/certifications/resources/study-guides/az-104",
+      "duration_hours": 3,
+      "difficulty": "intermediate",
+      "content_summary": "Official Microsoft practice assessment for the AZ-104 Azure Administrator exam with 50 representative questions across all exam domains. Questions cover managing Azure identities and governance, implementing and managing storage, deploying and managing Azure compute resources, configuring and managing virtual networking, and monitoring and backing up Azure resources. Detailed answer explanations reference official Microsoft documentation and highlight common misconceptions. Score breakdown by domain helps identify weak areas for targeted study before the certification exam.",
+      "last_updated": "2026-04-20"
+    },
+    {
+      "resource_id": "RES-016",
+      "title": "DP-203 Retry Prep: Streaming and Lakehouse Optimization",
+      "type": "lab",
+      "cert_ids": ["DP-203"],
+      "skill_tags": ["real-time-ingestion", "stream-analytics", "lakehouse-optimization", "performance-tuning"],
+      "url": "https://learn.microsoft.com/en-us/training/paths/dp-203-streaming-advanced/",
+      "duration_hours": 6,
+      "difficulty": "advanced",
+      "content_summary": "Targeted remediation lab for learners who have previously attempted DP-203 and need to strengthen streaming and lakehouse optimization knowledge. Covers advanced Stream Analytics windowing, late arrival policies, and reference data join patterns that are frequently tested. Delta Lake compaction strategies, Z-order clustering, and partition pruning for large-scale lakehouse queries are practiced hands-on. Performance benchmarking with EXPLAIN plans, autoscaling pool configuration, and cost-performance tradeoffs complete the module, directly addressing the weak areas most commonly cited in failed exam feedback.",
+      "last_updated": "2026-05-01"
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "_metadata": {
+    "synthetic": true,
+    "generated": "2026-06-11",
+    "version": "1.1",
+    "description": "Synthetic learner personas for Enterprise Learning System demo"
+  },
+  "learners": [
+    {
+      "learner_id": "EMP-001",
+      "display_name": "Alex M.",
+      "roles": ["Cloud Engineer", "DevOps Engineer"],
+      "seniority": "mid",
+      "current_skills": ["python", "ci-cd", "azure-pipelines", "docker", "linux"],
+      "target_certs": ["AZ-104", "AZ-400"],
+      "completed_certs": ["AZ-900"],
+      "failed_attempts": [],
+      "progress": 42,
+      "readiness_score": 58,
+      "study_hours_per_week": 6,
+      "avg_practice_score": 64,
+      "learning_style": "hands-on",
+      "timezone": "UTC-5",
+      "preferred_study_time": "evening",
+      "streak_days": 12,
+      "team_id": "TEAM-A",
+      "notes": "Strong IaC background; weak on identity and governance topics",
+      "goals": [
+        "Pass AZ-104 by Q3 to move into cloud governance work",
+        "Get AZ-400 to lead DevOps pipeline standardisation effort"
+      ]
+    },
+    {
+      "learner_id": "EMP-002",
+      "display_name": "Jordan R.",
+      "roles": ["Data Engineer"],
+      "seniority": "senior",
+      "current_skills": ["sql", "pyspark", "azure-synapse", "data-factory", "python"],
+      "target_certs": ["DP-203", "DP-600"],
+      "completed_certs": ["AZ-900", "AZ-104"],
+      "failed_attempts": [
+        {
+          "cert_id": "DP-203",
+          "attempt_date": "2026-03-15",
+          "score": 672,
+          "passing_score": 700,
+          "status": "failed",
+          "retry_planned": true,
+          "retry_target_date": "2026-07-01",
+          "weak_areas": ["real-time-ingestion", "stream-analytics", "lakehouse-optimization"]
+        }
+      ],
+      "progress": 68,
+      "readiness_score": 71,
+      "study_hours_per_week": 8,
+      "avg_practice_score": 73,
+      "learning_style": "reading",
+      "timezone": "UTC+1",
+      "preferred_study_time": "morning",
+      "streak_days": 27,
+      "team_id": "TEAM-A",
+      "notes": "Failed DP-203 by 28 points; needs focused review on streaming patterns and lakehouse optimization. High motivation to retry.",
+      "goals": [
+        "Retake and pass DP-203 before Q3 to unlock senior data engineer role",
+        "Build expertise in real-time streaming to support the new event-driven platform initiative"
+      ]
+    },
+    {
+      "learner_id": "EMP-003",
+      "display_name": "Sam K.",
+      "roles": ["AI Engineer"],
+      "seniority": "junior",
+      "current_skills": ["python", "machine-learning", "azure-cognitive-services"],
+      "target_certs": ["AI-102", "AZ-900"],
+      "completed_certs": ["AI-900"],
+      "failed_attempts": [],
+      "progress": 18,
+      "readiness_score": 34,
+      "study_hours_per_week": 4,
+      "avg_practice_score": 45,
+      "learning_style": "video",
+      "timezone": "UTC-8",
+      "preferred_study_time": "afternoon",
+      "streak_days": 3,
+      "team_id": "TEAM-A",
+      "notes": "Early career; needs foundational Azure knowledge before specializing in AI. At-risk due to low readiness and short streak.",
+      "goals": [
+        "Get AZ-900 as a foundation before the team AI project kickoff in Q4",
+        "Understand Azure AI services well enough to contribute to the cognitive search feature"
+      ]
+    },
+    {
+      "learner_id": "EMP-004",
+      "display_name": "Taylor W.",
+      "roles": ["Solutions Architect"],
+      "seniority": "senior",
+      "current_skills": ["azure-architecture", "networking", "security", "cost-management", "high-availability"],
+      "target_certs": ["AZ-305"],
+      "completed_certs": ["AZ-900", "AZ-104", "AZ-204"],
+      "failed_attempts": [],
+      "progress": 75,
+      "readiness_score": 82,
+      "study_hours_per_week": 5,
+      "avg_practice_score": 85,
+      "learning_style": "practice-tests",
+      "timezone": "UTC+0",
+      "preferred_study_time": "morning",
+      "streak_days": 45,
+      "team_id": "TEAM-A",
+      "notes": "Strong candidate; needs to solidify Well-Architected Framework governance and cost optimization topics.",
+      "goals": [
+        "Achieve AZ-305 to formally qualify for principal architect track",
+        "Deepen Well-Architected Framework knowledge to lead the upcoming cost-optimisation programme"
+      ]
+    },
+    {
+      "learner_id": "EMP-005",
+      "display_name": "Morgan L.",
+      "roles": ["DevOps Engineer", "Cloud Engineer"],
+      "seniority": "mid",
+      "current_skills": ["github-actions", "terraform", "kubernetes", "azure-devops", "monitoring"],
+      "target_certs": ["AZ-400", "AZ-104"],
+      "completed_certs": ["AZ-900"],
+      "failed_attempts": [],
+      "progress": 35,
+      "readiness_score": 50,
+      "study_hours_per_week": 5,
+      "avg_practice_score": 55,
+      "learning_style": "hands-on",
+      "timezone": "UTC-3",
+      "preferred_study_time": "evening",
+      "streak_days": 8,
+      "team_id": "TEAM-A",
+      "notes": "Solid DevOps practice; weak on security scanning integration and compliance as code.",
+      "goals": [
+        "Pass AZ-400 to take ownership of the team CI/CD pipeline redesign",
+        "Close the security-as-code gap before the external compliance audit in Q4"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+services:
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    container_name: aspire-dashboard
+    ports:
+      # Web UI — open http://localhost:18888 in your browser
+      - "18888:18888"
+      # OTLP gRPC endpoint — backend sends traces/metrics here
+      - "4317:18889"
+    environment:
+      # Disable authentication for local development
+      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+      # OTLP ingest port inside the container
+      DOTNET_DASHBOARD_OTLP_ENDPOINT_URL: "http://+:18889"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:18888/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
