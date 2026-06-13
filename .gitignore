@@ -35,8 +35,10 @@ env/
 htmlcov/
 .mypy_cache/
 
-# ChromaDB local persistence (if ever switched to persistent mode)
+# ChromaDB local persistence
 chroma_data/
+.chromadb/
+backend/.chromadb/
 
 # Node / frontend
 node_modules/
