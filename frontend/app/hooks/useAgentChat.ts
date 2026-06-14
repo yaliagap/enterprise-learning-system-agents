@@ -163,7 +163,11 @@ export function useAgentChat<TState extends Record<string, unknown>>(url: string
             };
             currentAgentRef.current = (snap.current_agent || undefined) as AgentName | undefined;
             pendingKbRef.current = snap.kb_activity ?? undefined;
-            pendingCuratorOutputRef.current = snap.curator_response ?? undefined;
+            // Only store as CuratorOutput if it has the expected shape (Run 2 output)
+            const cr = snap.curator_response;
+            pendingCuratorOutputRef.current = (cr && typeof cr === "object" && "exam" in cr)
+              ? cr as CuratorOutput
+              : undefined;
             pendingCertOptionsRef.current = (snap.cert_options && snap.cert_options.length > 0) ? snap.cert_options : undefined;
             pendingWorkflowStatusRef.current = snap.workflow_status ?? undefined;
             setAgentState(snap);

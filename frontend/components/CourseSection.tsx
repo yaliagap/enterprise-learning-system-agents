@@ -11,6 +11,7 @@ interface LearningPathItem {
   domain_name: string | null;
   exam_weight: number | null;
   citations?: string[];
+  necessary_learn?: boolean;
 }
 
 interface DomainWeight {
@@ -36,6 +37,7 @@ interface CourseSectionProps {
   certId: string;
   items: LearningPathItem[];
   priorityDomains?: DomainWeight[];
+  pathEfficiencyReasoning?: string;
 }
 
 function groupByLP(items: LearningPathItem[], domains: DomainWeight[]): LPGroup[] {
@@ -68,6 +70,48 @@ const LEVEL_COLORS: Record<string, string> = {
   intermediate: "bg-blue-50 text-blue-700",
   advanced: "bg-violet-50 text-violet-700",
 };
+
+function ModuleRow({ item }: { item: LearningPathItem }) {
+  const [localChecked, setLocalChecked] = useState(item.necessary_learn !== false);
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-2.5 hover:bg-blue-50 transition-colors group">
+      <input
+        type="checkbox"
+        checked={localChecked}
+        onChange={(e) => setLocalChecked(e.target.checked)}
+        onClick={(e) => e.stopPropagation()}
+        className="h-3.5 w-3.5 shrink-0 rounded accent-amber-500 cursor-pointer"
+        aria-label={`Mark "${item.title}" as ${localChecked ? "not needed" : "needed"}`}
+      />
+      <a
+        href={item.source_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`flex flex-1 items-center gap-3 min-w-0 ${localChecked ? "" : "opacity-50"}`}
+      >
+        <span className={`flex-1 text-xs leading-snug group-hover:text-blue-700 ${localChecked ? "text-slate-700" : "text-slate-400"}`}>
+          {item.title}
+        </span>
+        <span className={`shrink-0 text-xs ${localChecked ? "text-slate-400" : "text-slate-300"}`}>
+          {item.estimated_hours}h
+        </span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          className="h-3 w-3 shrink-0 text-slate-300 group-hover:text-blue-500"
+        >
+          <path
+            fillRule="evenodd"
+            d="M4.75 3.75a.75.75 0 000 1.5h4.19L3.22 11.03a.75.75 0 101.06 1.06l5.72-5.72v4.19a.75.75 0 001.5 0v-6a.75.75 0 00-.75-.75h-6z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </a>
+    </div>
+  );
+}
 
 function LPCard({ group }: { group: LPGroup }) {
   const [expanded, setExpanded] = useState(true);
@@ -131,30 +175,7 @@ function LPCard({ group }: { group: LPGroup }) {
       {expanded && (
         <div className="overflow-y-auto max-h-52 divide-y divide-slate-100">
           {group.modules.map((mod) => (
-            <a
-              key={mod.resource_id}
-              href={mod.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors group"
-            >
-              <span className="flex-1 text-xs text-slate-700 leading-snug group-hover:text-blue-700">
-                {mod.title}
-              </span>
-              <span className="shrink-0 text-xs text-slate-400">{mod.estimated_hours}h</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 16 16"
-                fill="currentColor"
-                className="h-3 w-3 shrink-0 text-slate-300 group-hover:text-blue-500"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M4.75 3.75a.75.75 0 000 1.5h4.19L3.22 11.03a.75.75 0 101.06 1.06l5.72-5.72v4.19a.75.75 0 001.5 0v-6a.75.75 0 00-.75-.75h-6z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </a>
+            <ModuleRow key={mod.resource_id} item={mod} />
           ))}
         </div>
       )}
@@ -167,7 +188,9 @@ export default function CourseSection({
   certId,
   items,
   priorityDomains = [],
+  pathEfficiencyReasoning = "",
 }: CourseSectionProps) {
+  const [reasoningExpanded, setReasoningExpanded] = useState(false);
   const groups = groupByLP(items, priorityDomains);
   const totalHours = Math.round(groups.reduce((s, g) => s + g.total_hours, 0) * 10) / 10;
   const totalModules = items.length;
@@ -193,6 +216,32 @@ export default function CourseSection({
           <span>{totalHours}h total</span>
         </div>
       </div>
+
+      {/* Path efficiency reasoning panel */}
+      {pathEfficiencyReasoning && (
+        <div className="mx-5 mt-4 mb-0 rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setReasoningExpanded((v) => !v)}
+            className="flex w-full items-center justify-between px-4 py-2.5 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="h-3.5 w-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+              <span className="text-xs font-semibold text-amber-700">Curator Reasoning · Path Efficiency</span>
+            </div>
+            <svg className={`h-3.5 w-3.5 text-amber-500 transition-transform ${reasoningExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {reasoningExpanded && (
+            <div className="px-4 pb-3 border-t border-amber-100">
+              <p className="text-xs text-amber-800 leading-relaxed mt-2">{pathEfficiencyReasoning}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* LP cards grid */}
       <div className="p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

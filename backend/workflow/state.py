@@ -25,9 +25,13 @@ class LearnerContext(BaseModel):
     learner_id: str
     employee_id: str
     role: str
+    roles: list[str] = Field(default_factory=list)
+    seniority: str = ""
     topics: list[str] = Field(min_length=1, max_length=10)
     experience_level: str | None = None
     goals: list[str] | None = None
+    current_skills: list[str] = Field(default_factory=list)
+    strongest_domains: list[str] = Field(default_factory=list)
 
 
 class GroundingReference(BaseModel):
@@ -54,6 +58,7 @@ class LearningPathItem(BaseModel):
     domain_name: str | None = None
     exam_weight: float | None = Field(default=None, ge=0.0, le=1.0)
     citations: list[str] = Field(default_factory=list)
+    necessary_learn: bool = True
 
     @field_validator("estimated_hours", mode="before")
     @classmethod
@@ -80,6 +85,7 @@ class CurationResult(BaseModel):
     recommended_learning_paths: list[LearningPathItem]
     coverage_summary: str
     references: list[GroundingReference] = []
+    path_efficiency_reasoning: str = ""
 
 
 class LearnerSchedulePreferences(BaseModel):
@@ -344,6 +350,9 @@ class WorkflowState(BaseModel):
     cert_options: list[CertOption] = Field(default_factory=list)
     selected_cert_id: str | None = None
 
+    # Populated by the Curator agent (Run 2) — efficiency reasoning for necessary_learn markings
+    path_efficiency_reasoning: str = ""
+
     # Attribution metadata — consumed by the frontend to label agent bubbles
     current_agent: str = ""
     kb_activity: KBActivity | None = None
@@ -360,6 +369,8 @@ class WorkflowState(BaseModel):
         employee_id: str,
         topics: list[str],
         role: str,
+        roles: list[str] | None = None,
+        seniority: str = "",
         experience_level: str | None = None,
         goals: list[str] | None = None,
     ) -> "WorkflowState":
@@ -370,6 +381,8 @@ class WorkflowState(BaseModel):
                 employee_id=employee_id,
                 topics=topics,
                 role=role,
+                roles=roles or ([role] if role else []),
+                seniority=seniority,
                 experience_level=experience_level,
                 goals=goals,
             )

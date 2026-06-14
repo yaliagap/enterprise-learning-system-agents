@@ -163,6 +163,7 @@ class MockFabricIQProvider(FabricIQProvider):
                 # Enriched fields
                 roles=roles,
                 current_skills=p.get("current_skills", []),
+                strongest_domains=p.get("strongest_domains", []),
                 completed_certs=p.get("completed_certs", []),
                 goals=p.get("goals", []),
             )

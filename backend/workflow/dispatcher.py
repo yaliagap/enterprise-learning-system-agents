@@ -251,13 +251,13 @@ class SeedExecutor(Executor):
             await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
             await ctx.send_message(LearnerMessage(state=state))
         else:
-            topics_display = ", ".join(state.learner.topics)
+            topics_display = ", ".join(TOPIC_LABELS.get(t, t) for t in state.learner.topics)
             logger.info(
                 "[seed] Bootstrapping workflow for learner=%s topics=%s",
                 state.learner.learner_id,
                 topics_display,
             )
-            await _yield_text(ctx, f"Planning your learning path for topics: {topics_display}...")
+            await _yield_text(ctx, f"Planning your learning path for topics: {topics_display}.")
             await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
             await ctx.send_message(LearnerMessage(state=state))
 
@@ -519,6 +519,34 @@ class _MCPLoggingMiddleware(FunctionMiddleware):
         result = context.result
         result_preview = str(result)[:800] if result is not None else "<none>"
         self._mcp_logger.info("[MCP result] %s →\n%s", name, result_preview)
+
+
+class _KBCaptureMiddleware(FunctionMiddleware):
+    """Captures the KB search query, response text, and references for state population."""
+
+    def __init__(self) -> None:
+        self.query: str = ""
+        self.response_text: str = ""
+        self.references: list[dict] = []
+
+    async def process(self, context: FunctionInvocationContext, call_next: object) -> None:
+        name = context.function.name
+        if "knowledge_base" in name:
+            args = dict(context.arguments) if context.arguments else {}
+            self.query = str(args.get("query") or ", ".join(args.get("queries", []) or []) or "")[:400]
+            logger.info("[KB query] %s", self.query)
+            await call_next()  # type: ignore[operator]
+            result = context.result
+            if result is not None:
+                text_content = ""
+                if isinstance(result, list) and result:
+                    text_content = getattr(result[0], "text", None) or str(result)
+                else:
+                    text_content = str(result)
+                self.response_text = text_content[:3000]
+                logger.info("[KB response] (first 500 chars) %.500s", self.response_text)
+        else:
+            await call_next()  # type: ignore[operator]
 
 
 # ---------------------------------------------------------------------------
@@ -919,7 +947,7 @@ class CuratorExecutor(Executor):
     @handler
     async def handle(self, message: LearnerMessage, ctx: WorkflowContext) -> None:
         """Run 1: recommend certs → set awaiting_cert_selection → end run."""
-        from agents.curator import _parse_cert_options, create_curator_run1  # noqa: PLC0415
+        from agents.curator import _parse_cert_options, _parse_run1_reasoning, create_curator_run1  # noqa: PLC0415
 
         state = message.state
         topics_display = ", ".join(TOPIC_LABELS.get(t, t) for t in state.learner.topics)
@@ -959,42 +987,61 @@ class CuratorExecutor(Executor):
 
         kb_mcp = getattr(self, "_kb_mcp_tool", None)
         client = getattr(self, "_client", None) or _build_client()
+        kb_capture = _KBCaptureMiddleware()
         with trace_agent_invocation("learning_path_curator_run1", state.learner.learner_id):
             try:
                 if kb_mcp is not None:
                     # Connect first so kb_mcp.functions is populated, then build the agent.
                     async with kb_mcp:
                         agent_run1 = create_curator_run1(client, kb_mcp)
-                        result = await agent_run1.run(messages=prompt, middleware=[_MCPLoggingMiddleware()])  # type: ignore[arg-type]
+                        result = await agent_run1.run(messages=prompt, middleware=[kb_capture, _MCPLoggingMiddleware()])  # type: ignore[arg-type]
                 else:
                     # Use pre-built agent when available (test mocks set _agent_run1 directly).
                     agent_run1 = getattr(self, "_agent_run1", None) or create_curator_run1(client)
-                    result = await agent_run1.run(messages=prompt, middleware=[_MCPLoggingMiddleware()])  # type: ignore[arg-type]
+                    result = await agent_run1.run(messages=prompt, middleware=[kb_capture, _MCPLoggingMiddleware()])  # type: ignore[arg-type]
             except Exception as exc:
                 logger.warning("[curator/run1] Agent call failed (%s); returning empty cert_options", exc)
                 result = None
 
         cert_options = _parse_cert_options(result)
+        reasoning = _parse_run1_reasoning(result)
         n = len(cert_options)
         logger.info("[curator/run1] Parsed %d cert options", n)
 
         state.cert_options = cert_options
         state.current_agent = "curator"
-        state.kb_activity = None
-        state.curator_response = None
+        kb_references = [
+            GroundingReference(
+                title=r.get("title", "KB Document"),
+                url=r.get("url", ""),
+                type=r.get("type", "document"),
+                score=r.get("score"),
+            )
+            for r in kb_capture.references
+        ]
+        state.kb_activity = (
+            KBActivity(
+                query=kb_capture.query,
+                response_text=kb_capture.response_text,
+                references=kb_references,
+            )
+            if kb_capture.query
+            else None
+        )
+        state.curator_response = {"reasoning": reasoning} if reasoning else None
         state.workflow_status = "awaiting_cert_selection"
         ctx.set_state("workflow_state", state.model_dump())
         await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
 
         if n > 0:
             options_text = "\n".join(
-                f"  {i + 1}. {o.cert_id} — {o.name} ({int(o.recommendation_pct)}% match)"
-                + (" [already obtained]" if o.already_obtained else "")
+                f"  {i + 1}. **{o.cert_id}** — **{o.name}** ({int(o.recommendation_pct)}% match)"
+                + (" ✓ already obtained" if o.already_obtained else "")
                 for i, o in enumerate(cert_options)
             )
             await _yield_text(
                 ctx,
-                f"I've found {n} certification(s) that match your profile. "
+                f"I've found **{n} certification(s)** that match your profile. "
                 "Please review and select the one you'd like to pursue:\n" + options_text,
             )
         else:
@@ -1039,10 +1086,12 @@ class CuratorExecutor(Executor):
             else "LP UIDs: []\n"
         )
         prompt = (
+            f"Learner ID: {state.learner.learner_id}\n"
             f"Cert code: {selected_cert_id}\n"
             f"Cert name: {cert_name}\n"
             f"{lp_uids_line}"
-            "Build the full learning path for this certification. "
+            "Step 0: Call get_learner_profile with the Learner ID above before doing anything else. "
+            "Use the profile to inform necessary_learn decisions. "
             "If LP UIDs are provided above, use them directly with get_learning_path — "
             "do NOT call search_learning_paths. "
             "If LP UIDs is empty, call search_learning_paths(exam_id) to discover them. "
@@ -1073,6 +1122,7 @@ class CuratorExecutor(Executor):
             if curation.priority_domains
             else _reconstruct_priority_domains(state.learning_path)
         )
+        state.path_efficiency_reasoning = curation.path_efficiency_reasoning
 
         # Clear cert selection fields now that Run 2 is complete
         state.cert_options = []
