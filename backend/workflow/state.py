@@ -264,6 +264,7 @@ WorkflowStatusLiteral = Literal[
     "planning",
     "studying",
     "awaiting_assessment",
+    "awaiting_engagement",
     "assessing",
     "exam_in_progress",
     "exam_failed",
@@ -352,6 +353,12 @@ class WorkflowState(BaseModel):
 
     # Populated by the Curator agent (Run 2) — efficiency reasoning for necessary_learn markings
     path_efficiency_reasoning: str = ""
+
+    # Module IDs selected by the learner before study plan generation
+    selected_module_ids: list[str] = Field(default_factory=list)
+
+    # Populated by the StudyPlan agent — reasoning for prioritization and scheduling decisions
+    study_plan_reasoning: str = ""
 
     # Attribution metadata — consumed by the frontend to label agent bubbles
     current_agent: str = ""

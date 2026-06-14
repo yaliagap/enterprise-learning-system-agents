@@ -144,6 +144,17 @@ class HITLConfirmedMessage:
 
 
 @dataclass
+class EngagementConfirmedMessage:
+    """Sent by SeedExecutor when the learner confirms the study plan.
+
+    Routes directly to EngagementExecutor via the seed->engagement edge,
+    bypassing CuratorExecutor and StudyPlanExecutor.
+    """
+
+    state: WorkflowState
+
+
+@dataclass
 class AssessmentAnswersMessage:
     """Sent by SeedExecutor when the learner submits answers for an active exam session.
 
@@ -233,6 +244,13 @@ class SeedExecutor(Executor):
             await _yield_text(ctx, "Assessment confirmed! Starting now...")
             await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
             await ctx.send_message(HITLConfirmedMessage(state=state))
+        elif state.workflow_status == "awaiting_engagement":
+            logger.info("[seed] Engagement confirmed for learner=%s", state.learner.learner_id)
+            state.workflow_status = "studying"
+            ctx.set_state("workflow_state", state.model_dump())
+            await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
+            await _yield_text(ctx, "Moving to engagement planning...")
+            await ctx.send_message(EngagementConfirmedMessage(state=state))
         elif state.workflow_status == "exam_failed":
             logger.info(
                 "[seed] Retrying after exam failure for learner=%s (attempt %d of %d)",
@@ -819,6 +837,20 @@ def _apply_study_plan_result(
                 len(state.study_plan),
                 len(state.study_milestones),
             )
+            # Still extract reasoning from LLM result if available
+            if result:
+                import re as _re  # noqa: PLC0415
+                try:
+                    text = str(result).strip()
+                    if text.startswith("```"):
+                        text = _re.sub(r"^```[a-zA-Z]*\n?", "", text)
+                        text = _re.sub(r"\n?```$", "", text.strip()).strip()
+                    data = json.loads(text)
+                    reasoning = data.get("study_plan_reasoning", "")
+                    if reasoning:
+                        state.study_plan_reasoning = str(reasoning)
+                except Exception:  # noqa: BLE001
+                    pass
             return
         except Exception as exc:  # noqa: BLE001
             logger.warning("[study_plan] Failed to apply precomputed schedule (%s); falling back", exc)
@@ -877,6 +909,9 @@ def _apply_study_plan_result(
 
         state.study_plan = sessions
         state.study_milestones = milestones
+        reasoning = data.get("study_plan_reasoning", "")
+        if reasoning:
+            state.study_plan_reasoning = str(reasoning)
 
     except Exception as exc:  # noqa: BLE001
         logger.warning("[study_plan] Failed to parse study plan result (%s); using fallback", exc)
@@ -1060,6 +1095,13 @@ class CuratorExecutor(Executor):
         await ctx.send_message(LearnerMessage(state=message.state))
 
     @handler
+    async def handle_engagement_confirmed(
+        self, message: EngagementConfirmedMessage, ctx: WorkflowContext
+    ) -> None:
+        """Engagement confirmed — pass through to StudyPlanExecutor, which will forward to EngagementExecutor."""
+        await ctx.send_message(message)
+
+    @handler
     async def handle_cert_selected(
         self,
         message: CertSelectedMessage,
@@ -1171,12 +1213,16 @@ class StudyPlanExecutor(Executor):
         today = date.today().isoformat()
         cert_ref = state.recommended_cert_id or "your certification"
 
-        domains = state.priority_domains or _reconstruct_priority_domains(state.learning_path)
+        modules = state.learning_path
+        if state.selected_module_ids:
+            modules = [m for m in modules if m.resource_id in state.selected_module_ids]
+
+        domains = state.priority_domains or _reconstruct_priority_domains(modules)
         domains_sorted = sorted(domains, key=lambda d: d.exam_weight, reverse=True)
 
         # Shared container: compute_study_schedule tool writes here; executor reads it
         result_container: dict = {}
-        schedule_tool = _make_schedule_tool(state.learning_path, domains_sorted, today, result_container)
+        schedule_tool = _make_schedule_tool(modules, domains_sorted, today, result_container)
 
         domains_text = "\n".join(
             f"  - {d.domain_name} (exam_weight: {d.exam_weight:.2f})" for d in domains_sorted
@@ -1184,7 +1230,7 @@ class StudyPlanExecutor(Executor):
         path_text = "\n".join(
             f"  - [{item.resource_id}] {item.title} ({item.estimated_hours}h)"
             + (f" — domain: {item.domain_name}" if item.domain_name else "")
-            for item in state.learning_path
+            for item in modules
         ) or "  (no resources provided)"
 
         prompt = (
@@ -1199,7 +1245,8 @@ class StudyPlanExecutor(Executor):
             "2. compute_study_schedule(employee_id) — computes the complete schedule\n\n"
             'After both calls, return ONLY this JSON (no markdown, no prose):\n'
             '{"plan_header": {"cert": "<cert_id>", "slot": "<slot>", '
-            '"weekly_capacity_hours": <float>, "estimated_weeks": <int>}}'
+            '"weekly_capacity_hours": <float>, "estimated_weeks": <int>}, '
+            '"study_plan_reasoning": "<2-3 sentences: which modules were prioritized and why, how session frequency and duration were allocated, and any notable scheduling decisions>"}'
         )
 
         agent = create_study_plan_generator(_build_client(), schedule_tool=schedule_tool)
@@ -1217,8 +1264,17 @@ class StudyPlanExecutor(Executor):
         state.kb_activity = None
         ctx.set_state("workflow_state", state.model_dump())
         await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
-        await _yield_text(ctx, "Study schedule created. Setting up engagement and readiness check...")
-        await ctx.send_message(LearnerMessage(state=state))
+        state.workflow_status = "awaiting_engagement"
+        ctx.set_state("workflow_state", state.model_dump())
+        await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
+        await _yield_text(ctx, "Study plan ready. Confirm to proceed with engagement planning.")
+
+    @handler
+    async def handle_engagement_confirmed(
+        self, message: EngagementConfirmedMessage, ctx: WorkflowContext
+    ) -> None:
+        """Engagement confirmed — pass through to EngagementExecutor via the chain."""
+        await ctx.send_message(message)
 
 
 # ---------------------------------------------------------------------------
@@ -1380,6 +1436,12 @@ class EngagementExecutor(Executor):
         await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
         await _yield_text(ctx, "Engagement configured. Preparing readiness check...")
         await ctx.send_message(LearnerMessage(state=state))
+
+    @handler
+    async def handle_confirmed(
+        self, message: EngagementConfirmedMessage, ctx: WorkflowContext
+    ) -> None:
+        await self.handle(LearnerMessage(state=message.state), ctx)
 
 
 # ---------------------------------------------------------------------------

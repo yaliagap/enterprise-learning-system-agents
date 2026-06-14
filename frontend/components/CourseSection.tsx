@@ -38,6 +38,10 @@ interface CourseSectionProps {
   items: LearningPathItem[];
   priorityDomains?: DomainWeight[];
   pathEfficiencyReasoning?: string;
+  checkedModules?: Record<string, boolean>;
+  onCheckedChange?: (resourceId: string) => void;
+  locked?: boolean;
+  onStartStudyPlan?: (checkedResourceIds: string[]) => void;
 }
 
 function groupByLP(items: LearningPathItem[], domains: DomainWeight[]): LPGroup[] {
@@ -71,29 +75,38 @@ const LEVEL_COLORS: Record<string, string> = {
   advanced: "bg-violet-50 text-violet-700",
 };
 
-function ModuleRow({ item }: { item: LearningPathItem }) {
-  const [localChecked, setLocalChecked] = useState(item.necessary_learn !== false);
-
+function ModuleRow({
+  item,
+  checked,
+  onToggle,
+  disabled,
+}: {
+  item: LearningPathItem;
+  checked: boolean;
+  onToggle: (resourceId: string) => void;
+  disabled?: boolean;
+}) {
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 hover:bg-blue-50 transition-colors group">
       <input
         type="checkbox"
-        checked={localChecked}
-        onChange={(e) => setLocalChecked(e.target.checked)}
+        checked={checked}
+        onChange={() => onToggle(item.resource_id)}
         onClick={(e) => e.stopPropagation()}
-        className="h-3.5 w-3.5 shrink-0 rounded accent-amber-500 cursor-pointer"
-        aria-label={`Mark "${item.title}" as ${localChecked ? "not needed" : "needed"}`}
+        disabled={disabled}
+        className="h-3.5 w-3.5 shrink-0 rounded accent-amber-500 cursor-pointer disabled:cursor-not-allowed"
+        aria-label={`Mark "${item.title}" as ${checked ? "not needed" : "needed"}`}
       />
       <a
         href={item.source_url}
         target="_blank"
         rel="noopener noreferrer"
-        className={`flex flex-1 items-center gap-3 min-w-0 ${localChecked ? "" : "opacity-50"}`}
+        className={`flex flex-1 items-center gap-3 min-w-0 ${checked ? "" : "opacity-50"}`}
       >
-        <span className={`flex-1 text-xs leading-snug group-hover:text-blue-700 ${localChecked ? "text-slate-700" : "text-slate-400"}`}>
+        <span className={`flex-1 text-xs leading-snug group-hover:text-blue-700 ${checked ? "text-slate-700" : "text-slate-400"}`}>
           {item.title}
         </span>
-        <span className={`shrink-0 text-xs ${localChecked ? "text-slate-400" : "text-slate-300"}`}>
+        <span className={`shrink-0 text-xs ${checked ? "text-slate-400" : "text-slate-300"}`}>
           {item.estimated_hours}h
         </span>
         <svg
@@ -113,7 +126,17 @@ function ModuleRow({ item }: { item: LearningPathItem }) {
   );
 }
 
-function LPCard({ group }: { group: LPGroup }) {
+function LPCard({
+  group,
+  checkedModules,
+  onToggle,
+  locked,
+}: {
+  group: LPGroup;
+  checkedModules: Record<string, boolean>;
+  onToggle: (resourceId: string) => void;
+  locked?: boolean;
+}) {
   const [expanded, setExpanded] = useState(true);
   const weightPct = group.exam_weight ? Math.round(group.exam_weight * 100) : null;
   const levelLabel = group.level ?? "";
@@ -175,7 +198,13 @@ function LPCard({ group }: { group: LPGroup }) {
       {expanded && (
         <div className="overflow-y-auto max-h-52 divide-y divide-slate-100">
           {group.modules.map((mod) => (
-            <ModuleRow key={mod.resource_id} item={mod} />
+            <ModuleRow
+              key={mod.resource_id}
+              item={mod}
+              checked={checkedModules[mod.resource_id] ?? true}
+              onToggle={onToggle}
+              disabled={locked}
+            />
           ))}
         </div>
       )}
@@ -189,11 +218,32 @@ export default function CourseSection({
   items,
   priorityDomains = [],
   pathEfficiencyReasoning = "",
+  checkedModules: checkedModulesProp,
+  onCheckedChange,
+  locked,
+  onStartStudyPlan,
 }: CourseSectionProps) {
   const [reasoningExpanded, setReasoningExpanded] = useState(false);
+  const [localChecked, setLocalChecked] = useState<Record<string, boolean>>(() =>
+    items.reduce((acc, item) => ({ ...acc, [item.resource_id]: item.necessary_learn !== false }), {} as Record<string, boolean>)
+  );
+  const isControlled = checkedModulesProp !== undefined;
+  const checkedModules = isControlled ? checkedModulesProp! : localChecked;
+
   const groups = groupByLP(items, priorityDomains);
   const totalHours = Math.round(groups.reduce((s, g) => s + g.total_hours, 0) * 10) / 10;
   const totalModules = items.length;
+
+  const checkedItems = items.filter((item) => checkedModules[item.resource_id] ?? true);
+  const personalizedHours = Math.round(checkedItems.reduce((s, i) => s + i.estimated_hours, 0) * 10) / 10;
+  const personalizedModules = checkedItems.length;
+  const personalizedPaths = new Set(checkedItems.map((i) => i.domain_name ?? "General")).size;
+
+  function handleToggle(resourceId: string) {
+    if (locked) return;
+    if (isControlled) onCheckedChange?.(resourceId);
+    else setLocalChecked((prev) => ({ ...prev, [resourceId]: !prev[resourceId] }));
+  }
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -208,12 +258,23 @@ export default function CourseSection({
           </span>
         </div>
         <h3 className="text-base font-bold text-white leading-snug">{certName}</h3>
-        <div className="flex items-center gap-3 mt-2 text-xs text-blue-100">
+        <div className="flex items-center gap-2 mt-2 text-xs text-blue-200">
+          <span className="uppercase tracking-wider font-medium text-blue-300">Official</span>
+          <span>·</span>
           <span>{groups.length} learning paths</span>
           <span>·</span>
           <span>{totalModules} modules</span>
           <span>·</span>
-          <span>{totalHours}h total</span>
+          <span>{totalHours}h</span>
+        </div>
+        <div className="flex items-center gap-2 mt-1 text-xs">
+          <span className="uppercase tracking-wider font-semibold text-amber-300">Personalized</span>
+          <span className="text-blue-200">·</span>
+          <span className="text-white font-medium">{personalizedPaths} learning paths</span>
+          <span className="text-blue-200">·</span>
+          <span className="text-white font-medium">{personalizedModules} modules</span>
+          <span className="text-blue-200">·</span>
+          <span className="text-white font-medium">{personalizedHours}h</span>
         </div>
       </div>
 
@@ -246,9 +307,33 @@ export default function CourseSection({
       {/* LP cards grid */}
       <div className="p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {groups.map((group) => (
-          <LPCard key={group.domain_name} group={group} />
+          <LPCard
+            key={group.domain_name}
+            group={group}
+            checkedModules={checkedModules}
+            onToggle={handleToggle}
+            locked={locked}
+          />
         ))}
       </div>
+
+      {items.length > 0 && onStartStudyPlan && (
+        <div className="px-5 pb-5">
+          <button
+            type="button"
+            disabled={!!locked}
+            onClick={() => {
+              const checkedResourceIds = Object.entries(checkedModules)
+                .filter(([, v]) => v)
+                .map(([k]) => k);
+              onStartStudyPlan(checkedResourceIds);
+            }}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Build my intelligent study plan →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

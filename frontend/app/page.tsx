@@ -29,6 +29,7 @@ type WorkflowStatus =
   | "planning"
   | "studying"
   | "awaiting_assessment"
+  | "awaiting_engagement"
   | "assessing"
   | "exam_in_progress"
   | "exam_failed"
@@ -128,6 +129,7 @@ const PHASE_LABELS: Record<WorkflowStatus, string> = {
   planning: "Planning",
   studying: "Studying",
   awaiting_assessment: "Awaiting Assessment",
+  awaiting_engagement: "Confirm Study Plan",
   assessing: "Assessing",
   exam_in_progress: "Assessment",
   passed: "Passed",
@@ -142,6 +144,7 @@ const PHASE_COLORS: Record<WorkflowStatus, string> = {
   planning:                  "bg-amber-50 text-amber-700 border border-amber-200",
   studying:                  "bg-blue-50 text-blue-700 border border-blue-200",
   awaiting_assessment:       "bg-violet-50 text-violet-700 border border-violet-200",
+  awaiting_engagement:       "bg-indigo-50 text-indigo-700 border border-indigo-200",
   assessing:                 "bg-pink-50 text-pink-700 border border-pink-200",
   exam_in_progress:          "bg-violet-50 text-violet-700 border border-violet-200",
   passed:                    "bg-emerald-50 text-emerald-700 border border-emerald-200",
@@ -436,13 +439,13 @@ const CERT_LEVEL_STYLES: Record<string, string> = {
   expert:       "bg-purple-100 text-purple-700",
 };
 
-function CertOptionsPanel({ options, onSelect }: { options: CertOption[]; onSelect: (id: string) => void }) {
+function CertOptionsPanel({ options, onSelect, locked }: { options: CertOption[]; onSelect?: (id: string) => void; locked?: boolean }) {
   const topId = [...options]
     .filter((o) => !o.already_obtained)
     .sort((a, b) => b.recommendation_pct - a.recommendation_pct)[0]?.cert_id;
 
   return (
-    <section>
+    <section className={locked ? "pointer-events-none opacity-75" : ""}>
       {/* Cert cards grid */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {options.map((cert) => {
@@ -537,8 +540,8 @@ function CertOptionsPanel({ options, onSelect }: { options: CertOption[]; onSele
                   ) : <span />}
                   <button
                     type="button"
-                    disabled={cert.already_obtained}
-                    onClick={() => onSelect(cert.cert_id)}
+                    disabled={cert.already_obtained || !onSelect}
+                    onClick={() => onSelect?.(cert.cert_id)}
                     className={`shrink-0 rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors ${
                       cert.already_obtained
                         ? "bg-slate-200 text-slate-400 cursor-not-allowed"
@@ -700,25 +703,30 @@ function ChatSidebar({
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-4 flex gap-2 border-t border-slate-100">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={disabled ? "Start a session to chat" : "Ask anything…"}
-          disabled={isRunning || disabled}
-          className="input flex-1"
-        />
-        <button
-          type="submit"
-          disabled={!input.trim() || isRunning || disabled}
-          className="shrink-0 min-w-[44px] min-h-[44px] rounded-xl px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          aria-label="Send message"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-          </svg>
-        </button>
+      <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-1.5 border-t border-slate-100">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={disabled ? "Use the button above to continue" : "Ask anything…"}
+            disabled={isRunning || disabled}
+            className="input flex-1"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || isRunning || disabled}
+            className="shrink-0 min-w-[44px] min-h-[44px] rounded-xl px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label="Send message"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            </svg>
+          </button>
+        </div>
+        {disabled && (
+          <p className="text-[11px] text-slate-400 text-center">Use the button above to continue</p>
+        )}
       </form>
     </aside>
   );
@@ -819,6 +827,40 @@ function AppHeader({ showPhase, phase, backLabel, onBack, onLogout, learnerId, l
 }
 
 // ---------------------------------------------------------------------------
+// Engagement confirmation gate component
+// ---------------------------------------------------------------------------
+
+function EngagementGate({ onConfirm }: { onConfirm: () => void }) {
+  const [showComingSoon, setShowComingSoon] = useState(false);
+  return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3">
+      <p className="text-sm font-semibold text-slate-700">How does this study plan look?</p>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 text-sm transition-colors"
+        >
+          Looks good, continue →
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowComingSoon(true)}
+          className="flex-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-semibold py-2.5 px-4 text-sm transition-colors"
+        >
+          Regenerate plan
+        </button>
+      </div>
+      {showComingSoon && (
+        <p className="text-xs text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Plan regeneration is coming soon.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main learner dashboard
 // ---------------------------------------------------------------------------
 
@@ -841,6 +883,9 @@ export default function LearnerPage() {
   const [showAdjustMessage, setShowAdjustMessage] = useState(false);
   const [curatorSubTab, setCuratorSubTab] = useState<"certification" | "modules">("certification");
   const [certSelected, setCertSelected] = useState(false);
+  const [activeAgentTab, setActiveAgentTab] = useState<"curator" | "study_plan" | "engagement" | "assessment">("curator");
+  const [savedCertOptions, setSavedCertOptions] = useState<CertOption[]>([]);
+  const [moduleChecks, setModuleChecks] = useState<Record<string, boolean>>({});
 
   // useAgentChat MUST stay at top level — never inside conditionals
   const { messages, agentState: workflowState, isRunning, activeToolCalls, error, resetSession, sendMessage } =
@@ -856,6 +901,7 @@ export default function LearnerPage() {
   }, [hitlToolCall]);
 
   const effectiveLearnerId = learnerProfile?.learner_id ?? learnerId.trim();
+
   const canStart = effectiveLearnerId.length > 0 && selectedTopics.length > 0;
 
   // --- Login ---
@@ -919,6 +965,8 @@ export default function LearnerPage() {
     setShowHITL(false);
     setCuratorSubTab("certification");
     setCertSelected(false);
+    setSavedCertOptions([]);
+    setModuleChecks({});
     // Auto-kick the workflow with selected topic labels
     setTimeout(() => sendMessage(`Start my learning path for the selected topics: ${topicLabels}`), 50);
   }
@@ -969,9 +1017,11 @@ export default function LearnerPage() {
     resource_ids: s.resource_ids,
     topic_hours: s.topic_hours,
   }));
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const studyMilestones = ((workflowState as any).study_milestones as StudyMilestone[] | undefined) ?? [];
   const engagementProposal = (workflowState.engagement_proposal as EngagementProposal | null | undefined) ?? null;
+  const workflowStatus = (workflowState as any)?.workflow_status as string | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scheduleContext = (workflowState as any).schedule_context as {
     preferred_study_days: string[];
@@ -993,6 +1043,14 @@ export default function LearnerPage() {
   const examQuestions = (workflowState.assessment_questions as AssessmentQuestion[] | undefined) ?? [];
   const latestAssessmentFull = latestAssessment ?? null;
 
+  useEffect(() => {
+    if (engagementProposal) setActiveAgentTab("engagement");
+  }, [!!engagementProposal]);
+
+  useEffect(() => {
+    if (assessmentResult || examQuestions.length > 0) setActiveAgentTab("assessment");
+  }, [!!assessmentResult, examQuestions.length > 0]);
+
   const recommendedCertId = workflowState.recommended_cert_id as string | null | undefined;
   const recommendedCertName = workflowState.recommended_cert_name as string | null | undefined;
   const certDisplay = recommendedCertName ?? recommendedCertId ?? null;
@@ -1009,6 +1067,24 @@ export default function LearnerPage() {
     .map((id) => AZURE_TOPICS.find((t) => t.id === id)?.label ?? id);
 
   const certOptions = (workflowState.cert_options as CertOption[] | undefined) ?? [];
+
+  useEffect(() => {
+    if (certOptions.length > 0 && savedCertOptions.length === 0) {
+      setSavedCertOptions(certOptions);
+    }
+  }, [certOptions.length]);
+
+  useEffect(() => {
+    if (learningPath.length > 0 && Object.keys(moduleChecks).length === 0) {
+      const initial = learningPath.reduce((acc, item) => ({
+        ...acc,
+        [item.resource_id]: item.necessary_learn !== false,
+      }), {} as Record<string, boolean>);
+      setModuleChecks(initial);
+    }
+  }, [learningPath.length]);
+
+  const studyPlanReasoning = (workflowState as any).study_plan_reasoning as string | undefined;
   const curatorReasoning = (workflowState.curator_response as { reasoning?: string } | null)?.reasoning ?? "";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pathEfficiencyReasoning = (workflowState as any).path_efficiency_reasoning as string | undefined ?? "";
@@ -1628,40 +1704,53 @@ export default function LearnerPage() {
                   <section className="rounded-xl border border-slate-200 overflow-hidden bg-white">
                     {/* Agent workflow tabs */}
                     <div className="flex gap-0 border-b border-slate-200 overflow-x-auto bg-white">
-                      {AGENT_WORKFLOW_STEPS.map((step, idx) => (
-                        <div
-                          key={step.key}
-                          className={`flex shrink-0 items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors select-none ${
-                            idx === 0
-                              ? "border-amber-500 text-amber-700"
-                              : "border-transparent text-slate-400 cursor-not-allowed"
-                          }`}
-                        >
-                          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                            idx === 0 ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"
-                          }`}>
-                            {step.step}
-                          </span>
-                          {step.label}
-                          {idx !== 0 && (
-                            <svg className="h-3 w-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                            </svg>
-                          )}
-                        </div>
-                      ))}
+                      {AGENT_WORKFLOW_STEPS.map((step) => {
+                        const isUnlocked =
+                          step.key === "curator" ||
+                          (step.key === "study_plan" && timelineSessions.length > 0) ||
+                          (step.key === "engagement" && engagementProposal !== null) ||
+                          (step.key === "assessment" && (assessmentResult !== null || latestAssessmentFull !== null));
+                        const isActive = activeAgentTab === step.key;
+                        return (
+                          <button
+                            key={step.key}
+                            type="button"
+                            disabled={!isUnlocked}
+                            onClick={() => isUnlocked && setActiveAgentTab(step.key as "curator" | "study_plan" | "engagement" | "assessment")}
+                            className={`flex shrink-0 items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors select-none ${
+                              isActive
+                                ? "border-amber-500 text-amber-700"
+                                : isUnlocked
+                                  ? "border-transparent text-slate-600 hover:text-amber-600 hover:bg-amber-50/40 cursor-pointer"
+                                  : "border-transparent text-slate-400 cursor-not-allowed"
+                            }`}
+                          >
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                              isActive ? "bg-amber-500 text-white" : isUnlocked ? "bg-slate-300 text-slate-600" : "bg-slate-200 text-slate-500"
+                            }`}>
+                              {step.step}
+                            </span>
+                            {step.label}
+                            {!isUnlocked && (
+                              <svg className="h-3 w-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
 
                     {/* Curator sub-tabs (1.1 / 1.2) */}
-                    <div className="flex gap-0 border-b border-slate-100 bg-amber-50/30">
+                    {activeAgentTab === "curator" && <div className="flex gap-0 border-b border-slate-100 bg-amber-50/30">
                       <button
                         type="button"
                         onClick={() => setCuratorSubTab("certification")}
-                        disabled={certOptions.length === 0}
+                        disabled={certOptions.length === 0 && !certSelected}
                         className={`flex shrink-0 items-center gap-1.5 px-5 py-2 text-xs font-semibold border-b-2 transition-colors ${
                           curatorSubTab === "certification"
                             ? "border-amber-400 text-amber-700 bg-amber-50"
-                            : certOptions.length === 0
+                            : certOptions.length === 0 && !certSelected
                               ? "border-transparent text-slate-300 cursor-not-allowed"
                               : "border-transparent text-slate-500 hover:text-amber-600 hover:bg-amber-50/60"
                         }`}
@@ -1687,142 +1776,185 @@ export default function LearnerPage() {
                           <span className="ml-1 h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                         )}
                       </button>
-                    </div>
+                    </div>}
 
-                    {/* Sub-tab content */}
+                    {/* Tab content */}
                     <div className="p-5">
-                      {curatorSubTab === "certification" && certOptions.length > 0 && (
-                        <div className="space-y-5">
-                          <CertOptionsPanel
-                            options={certOptions}
-                            onSelect={(certId) => {
-                              setCertSelected(true);
-                              setCuratorSubTab("modules");
-                              sendMessage(certId);
-                            }}
-                          />
-                          <CuratorReasoningPanel
-                            reasoning={curatorReasoning}
-                            kbActivity={curatorKbActivity}
-                          />
+                      {activeAgentTab === "curator" && (
+                        <>
+                          {curatorSubTab === "certification" && (savedCertOptions.length > 0 || certOptions.length > 0) && (
+                            <div className="space-y-5">
+                              <CertOptionsPanel
+                                options={savedCertOptions.length > 0 ? savedCertOptions : certOptions}
+                                onSelect={certSelected ? undefined : (certId) => {
+                                  setCertSelected(true);
+                                  setCuratorSubTab("modules");
+                                  sendMessage(certId);
+                                }}
+                                locked={certSelected}
+                              />
+                              <CuratorReasoningPanel
+                                reasoning={curatorReasoning}
+                                kbActivity={curatorKbActivity}
+                              />
+                            </div>
+                          )}
+
+                          {curatorSubTab === "modules" && (
+                            certSelected && learningPath.length === 0 ? (
+                              <div className="flex flex-col items-center gap-4 py-16">
+                                <div className="relative h-10 w-10">
+                                  <div className="absolute inset-0 rounded-full border-2 border-amber-100" />
+                                  <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-amber-500" />
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-sm font-semibold text-slate-700">Curating your learning modules…</p>
+                                  <p className="text-xs mt-1 text-slate-500">The curator agent is building your personalized path</p>
+                                </div>
+                              </div>
+                            ) : learningPath.length > 0 ? (
+                              <CourseSection
+                                certId={recommendedCertId ?? learningPath[0]?.cert_id ?? ""}
+                                certName={recommendedCertName ?? certDisplay ?? "Azure Certification"}
+                                items={learningPath}
+                                priorityDomains={priorityDomains}
+                                pathEfficiencyReasoning={pathEfficiencyReasoning}
+                                checkedModules={moduleChecks}
+                                onCheckedChange={(resourceId) =>
+                                  setModuleChecks(prev => ({ ...prev, [resourceId]: !prev[resourceId] }))
+                                }
+                                locked={timelineSessions.length > 0}
+                                onStartStudyPlan={async (checkedResourceIds) => {
+                                  await fetch(`/api/agent/session/${effectiveLearnerId}/select-modules`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ module_ids: checkedResourceIds }),
+                                  });
+                                  sendMessage("Build my intelligent study plan");
+                                  setActiveAgentTab("study_plan");
+                                }}
+                              />
+                            ) : null
+                          )}
+                        </>
+                      )}
+
+                      {activeAgentTab === "study_plan" && (
+                        <div className="space-y-4">
+                          {scheduleContext && (
+                            <div className="card flex flex-wrap gap-6 text-sm">
+                              <div>
+                                <p className="section-label mb-2">Study days</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {scheduleContext.preferred_study_days.map((day: string) => (
+                                    <span key={day} className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-semibold text-blue-700 capitalize">{day}</span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="section-label mb-2">Session length</p>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-base">⏱️</span>
+                                  <span className="font-bold text-slate-800 tabular-nums">{scheduleContext.session_duration_hours}h</span>
+                                  <span className="text-xs text-slate-400">per session</span>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="section-label mb-2">Preferred slot</p>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-base">{scheduleContext.preferred_slot === "morning" ? "☀️" : scheduleContext.preferred_slot === "afternoon" ? "🌤️" : "🌙"}</span>
+                                  <span className="font-semibold text-slate-800 capitalize">{scheduleContext.preferred_slot}</span>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="section-label mb-2">Weekly capacity</p>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-base">⚡</span>
+                                  <span className="font-bold text-slate-800 tabular-nums">{scheduleContext.capacity_hours_per_week}h</span>
+                                  <span className="text-xs text-slate-400">/ week</span>
+                                </div>
+                              </div>
+                              {scheduleContext.is_fallback && (
+                                <p className="w-full text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                  No calendar data found — using default preferences.
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {studyPlanReasoning && (
+                            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                              <p className="text-xs font-semibold text-blue-700 mb-1">Study Plan Reasoning</p>
+                              <p className="text-xs text-blue-800 leading-relaxed">{studyPlanReasoning}</p>
+                            </div>
+                          )}
+                          {timelineSessions.length > 0 ? (
+                            <>
+                              <div className="rounded-xl bg-[#0d0f1a] p-4">
+                                <StudyPlanTimeline sessions={timelineSessions} milestones={studyMilestones} />
+                              </div>
+                              {workflowStatus === "awaiting_engagement" && (
+                                <EngagementGate onConfirm={() => sendMessage("Proceed with engagement planning")} />
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-sm text-slate-400 italic">Study plan is being generated...</p>
+                          )}
                         </div>
                       )}
 
-                      {curatorSubTab === "modules" && (
-                        certSelected && learningPath.length === 0 ? (
-                          <div className="flex flex-col items-center gap-4 py-16">
-                            <div className="relative h-10 w-10">
-                              <div className="absolute inset-0 rounded-full border-2 border-amber-100" />
-                              <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-amber-500" />
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm font-semibold text-slate-700">Curating your learning modules…</p>
-                              <p className="text-xs mt-1 text-slate-500">The curator agent is building your personalized path</p>
-                            </div>
-                          </div>
-                        ) : learningPath.length > 0 ? (
-                          <CourseSection
-                            certId={recommendedCertId ?? learningPath[0]?.cert_id ?? ""}
-                            certName={recommendedCertName ?? certDisplay ?? "Azure Certification"}
-                            items={learningPath}
-                            priorityDomains={priorityDomains}
-                            pathEfficiencyReasoning={pathEfficiencyReasoning}
+                      {activeAgentTab === "engagement" && engagementProposal && (
+                        <div>
+                          <EngagementProposalView
+                            proposal={engagementProposal}
+                            studySessions={timelineSessions as StudySessionRef[]}
+                            studyMilestones={studyMilestones as StudyMilestoneRef[]}
+                            onConfirm={engagementConfirmed ? undefined : handleEngagementConfirm}
+                            onAdjust={handleEngagementAdjust}
                           />
-                        ) : null
+                          {showAdjustMessage && !engagementConfirmed && (
+                            <p className="mt-3 text-xs text-slate-400 text-center">
+                              Alert customization coming soon.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {activeAgentTab === "assessment" && (
+                        <>
+                          {phase === "assessing" && assessmentResult && (
+                            <AssessmentPanel
+                              questions={[]}
+                              currentQuestionIndex={0}
+                              selectedAnswer={selectedAnswer}
+                              result={assessmentResult}
+                              onSelectAnswer={setSelectedAnswer}
+                              onSubmitAnswer={() => {}}
+                              onBackToStudying={() => {
+                                setScreen("dashboard");
+                                setLearnerId("");
+                                setSelectedTopics([]);
+                              }}
+                            />
+                          )}
+                          {(phase === "passed" || phase === "failed" || phase === "exam_failed") && latestAssessmentFull && (
+                            <AssessmentResults
+                              score={latestAssessmentFull.score}
+                              passed={latestAssessmentFull.passed}
+                              weakAreas={latestAssessmentFull.weak_areas}
+                              perQuestionResults={latestAssessmentFull.per_question_results ?? []}
+                              questions={frozenExamQuestionsRef.current.length > 0 ? frozenExamQuestionsRef.current : examQuestions}
+                              reasoningDistribution={(latestAssessmentFull as { reasoning_distribution?: string | null }).reasoning_distribution ?? null}
+                              recommendedCertName={recommendedCertName ?? null}
+                              recommendedCertId={recommendedCertId ?? null}
+                              onRetry={phase === "exam_failed" ? handleRetryAssessment : undefined}
+                            />
+                          )}
+                        </>
                       )}
                     </div>
                   </section>
                 )}
 
-                {scheduleContext && (
-                  <section aria-labelledby="prefs-heading">
-                    <h2 id="prefs-heading" className="section-label mb-3">Schedule Preferences</h2>
-                    <div className="card flex flex-wrap gap-5 text-sm">
-                      <div>
-                        <p className="section-label mb-1">Study days</p>
-                        <p className="font-medium text-slate-800">{scheduleContext.preferred_study_days.join(", ")}</p>
-                      </div>
-                      <div>
-                        <p className="section-label mb-1">Session length</p>
-                        <p className="font-semibold text-slate-800 tabular-nums">{scheduleContext.session_duration_hours}h</p>
-                      </div>
-                      <div>
-                        <p className="section-label mb-1">Preferred slot</p>
-                        <p className="font-medium capitalize text-slate-800">{scheduleContext.preferred_slot}</p>
-                      </div>
-                      <div>
-                        <p className="section-label mb-1">Weekly capacity</p>
-                        <p className="font-semibold text-slate-800 tabular-nums">{scheduleContext.capacity_hours_per_week}h/week</p>
-                      </div>
-                      {scheduleContext.is_fallback && (
-                        <p className="w-full text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                          No calendar data found — using default preferences.
-                        </p>
-                      )}
-                    </div>
-                  </section>
-                )}
-
-                {timelineSessions.length > 0 && (
-                  <section aria-labelledby="plan-heading">
-                    <h2 id="plan-heading" className="section-label mb-4">Study Plan</h2>
-                    <StudyPlanTimeline sessions={timelineSessions} milestones={studyMilestones} />
-                  </section>
-                )}
-
-                {engagementProposal && (
-                  <section aria-labelledby="engagement-heading">
-                    <h2 id="engagement-heading" className="section-label mb-4">Engagement Plan</h2>
-                    <EngagementProposalView
-                      proposal={engagementProposal}
-                      studySessions={timelineSessions as StudySessionRef[]}
-                      studyMilestones={studyMilestones as StudyMilestoneRef[]}
-                      onConfirm={engagementConfirmed ? undefined : handleEngagementConfirm}
-                      onAdjust={handleEngagementAdjust}
-                    />
-                    {showAdjustMessage && !engagementConfirmed && (
-                      <p className="mt-3 text-xs text-slate-400 text-center">
-                        Alert customization coming soon.
-                      </p>
-                    )}
-                  </section>
-                )}
-
-                {phase === "assessing" && assessmentResult && (
-                  <section aria-labelledby="assessment-heading">
-                    <h2 id="assessment-heading" className="section-label mb-4">Assessment</h2>
-                    <AssessmentPanel
-                      questions={[]}
-                      currentQuestionIndex={0}
-                      selectedAnswer={selectedAnswer}
-                      result={assessmentResult}
-                      onSelectAnswer={setSelectedAnswer}
-                      onSubmitAnswer={() => {}}
-                      onBackToStudying={() => {
-                        setScreen("dashboard");
-                        setLearnerId("");
-                        setSelectedTopics([]);
-                      }}
-                    />
-                  </section>
-                )}
-
-                {(phase === "passed" || phase === "failed" || phase === "exam_failed") && latestAssessmentFull && (
-                  <section aria-labelledby="results-heading">
-                    <h2 id="results-heading" className="section-label mb-4">Assessment Results</h2>
-                    <AssessmentResults
-                      score={latestAssessmentFull.score}
-                      passed={latestAssessmentFull.passed}
-                      weakAreas={latestAssessmentFull.weak_areas}
-                      perQuestionResults={latestAssessmentFull.per_question_results ?? []}
-                      questions={frozenExamQuestionsRef.current.length > 0 ? frozenExamQuestionsRef.current : examQuestions}
-                      reasoningDistribution={(latestAssessmentFull as { reasoning_distribution?: string | null }).reasoning_distribution ?? null}
-                      recommendedCertName={recommendedCertName ?? null}
-                      recommendedCertId={recommendedCertId ?? null}
-                      onRetry={phase === "exam_failed" ? handleRetryAssessment : undefined}
-                    />
-                  </section>
-                )}
 
                 {(phase === "planning" || phase === "studying") && learningPath.length === 0 && certOptions.length === 0 && !certSelected && (
                   <div className="flex flex-col items-center gap-4 py-20">
@@ -1853,6 +1985,7 @@ export default function LearnerPage() {
               onHITLConfirm={handleHITLConfirm}
               onHITLDecline={handleHITLDecline}
               engagementConfirmed={engagementConfirmed}
+              disabled={learningPath.length > 0}
             />
           </>
         )}

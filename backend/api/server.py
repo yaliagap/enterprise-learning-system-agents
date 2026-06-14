@@ -28,12 +28,19 @@ logging.getLogger("agent_framework._mcp").setLevel(logging.DEBUG)
 logging.getLogger("agent_framework.tool_execution").setLevel(logging.DEBUG)
 
 from ag_ui.core import BaseEvent
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from api.middleware import LearnRequestValidationMiddleware
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# In-memory session store — maps session_id -> partial WorkflowState overrides
+# ---------------------------------------------------------------------------
+
+_sessions: dict[str, dict] = {}
 
 # ---------------------------------------------------------------------------
 # CORS origins
@@ -88,6 +95,24 @@ async def readiness() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Session endpoints
+# ---------------------------------------------------------------------------
+
+
+class _SelectModulesBody(BaseModel):
+    module_ids: list[str]
+
+
+@app.post("/session/{session_id}/select-modules", tags=["session"])
+async def select_modules(session_id: str, body: _SelectModulesBody) -> dict[str, bool]:
+    """Store the learner's selected module IDs for the given session."""
+    if session_id not in _sessions:
+        _sessions[session_id] = {}
+    _sessions[session_id]["selected_module_ids"] = body.module_ids
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # AG-UI SSE endpoints (wired at startup)
 # ---------------------------------------------------------------------------
 # We build the workflows lazily at module import so the agent factories and IQ
@@ -115,6 +140,15 @@ def _make_learner_workflow_class() -> type:
         async def run(self, input_data: dict[str, Any]) -> AsyncGenerator[BaseEvent]:
             raw_state = input_data.get("state")
             if raw_state and isinstance(raw_state, dict):
+                learner_id = (raw_state.get("learner") or {}).get("learner_id", "")
+                if learner_id and learner_id in _sessions:
+                    overrides = _sessions[learner_id]
+                    raw_state = {**raw_state, **overrides}
+                    logger.debug(
+                        "[LearnerWorkflow] Merged session overrides for learner=%s: %s",
+                        learner_id,
+                        list(overrides.keys()),
+                    )
                 thread_id = self._thread_id_from_input(input_data)
                 workflow = self._resolve_workflow(thread_id)
                 # State.set() writes to _pending; State.get() reads _pending first,
