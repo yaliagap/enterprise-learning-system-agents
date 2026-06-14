@@ -38,7 +38,8 @@ Step 3 — Return JSON only:
       "slot": "<preferred_slot from step 1>",
       "weekly_capacity_hours": <capacity_hours_per_week from step 1>,
       "estimated_weeks": <estimated_weeks from step 2>
-    }
+    },
+    "study_plan_reasoning": "<2-3 sentences explaining which modules were prioritized and why, how session frequency and duration were allocated, and any notable scheduling decisions>"
   }
 """.strip()
 
