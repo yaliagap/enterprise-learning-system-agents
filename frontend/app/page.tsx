@@ -428,7 +428,7 @@ export default function LearnerPage() {
   const [showAdjustMessage, setShowAdjustMessage] = useState(false);
 
   const { messages, agentState: workflowState, isRunning, activeToolCalls, error, resetSession, sendMessage } =
-    useAgentChat<WorkflowState>(`${BACKEND_URL}/api/learn`);
+    useAgentChat<WorkflowState>(process.env.NEXT_PUBLIC_AGENT_URL || `${BACKEND_URL}/api/learn`);
 
   // Detect HITL tool call
   const hitlToolCall = activeToolCalls.find((tc) => tc.name === "confirm_assessment_readiness");
