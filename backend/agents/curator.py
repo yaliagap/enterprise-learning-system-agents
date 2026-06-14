@@ -49,7 +49,8 @@ def create_kb_mcp_tool() -> MCPStreamableHTTPTool | None:
     url = (
         f"{config.AZURE_SEARCH_ENDPOINT}"
         f"/knowledgebases/{config.FOUNDRY_IQ_KB_NAME}"
-        f"/mcp?api-version=2025-11-01-Preview"
+        f"/mcp?api-version=2026-05-01-preview"
+        f"&outputMode={config.FOUNDRY_IQ_OUTPUT_MODE}"
     )
 
     if config.AZURE_SEARCH_API_KEY:

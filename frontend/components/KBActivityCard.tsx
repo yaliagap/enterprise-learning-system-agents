@@ -6,8 +6,15 @@ interface KBActivityCardProps {
   activity: KBActivity;
 }
 
+function parseRefIds(text: string): number[] {
+  const matches = [...text.matchAll(/\[ref_id:(\d+)\]/g)];
+  const unique = [...new Set(matches.map((m) => parseInt(m[1], 10)))];
+  return unique.sort((a, b) => a - b);
+}
+
 export function KBActivityCard({ activity }: KBActivityCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const refIds = parseRefIds(activity.response_text ?? "");
 
   return (
     <div className="mb-2 w-full max-w-[85%] rounded-lg border border-amber-200 bg-amber-50 text-sm overflow-hidden">
@@ -32,30 +39,18 @@ export function KBActivityCard({ activity }: KBActivityCardProps) {
           )}
           <div>
             <p className="text-xs text-amber-600 font-medium mb-1">
-              References ({activity.references.length})
+              References ({refIds.length})
             </p>
-            {activity.references.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">No references retrieved from Knowledge Base</p>
+            {refIds.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No references cited in KB response</p>
             ) : (
-              <ul className="space-y-1">
-                {activity.references.map((ref, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 rounded px-1 bg-amber-100 text-amber-700">{ref.type}</span>
-                    {ref.url?.startsWith("https://") ? (
-                      <a
-                        href={ref.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline break-all"
-                      >
-                        {ref.title}
-                      </a>
-                    ) : (
-                      <span className="text-slate-600 break-all">{ref.title}</span>
-                    )}
-                  </li>
+              <div className="flex flex-wrap gap-1">
+                {refIds.map((id) => (
+                  <span key={id} className="rounded px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-mono">
+                    ref_id:{id}
+                  </span>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         </div>

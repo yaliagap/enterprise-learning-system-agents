@@ -251,13 +251,13 @@ class SeedExecutor(Executor):
             await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
             await ctx.send_message(LearnerMessage(state=state))
         else:
-            topics_display = ", ".join(state.learner.topics)
+            topics_display = ", ".join(TOPIC_LABELS.get(t, t) for t in state.learner.topics)
             logger.info(
                 "[seed] Bootstrapping workflow for learner=%s topics=%s",
                 state.learner.learner_id,
                 topics_display,
             )
-            await _yield_text(ctx, f"Planning your learning path for topics: {topics_display}...")
+            await _yield_text(ctx, f"Planning your learning path for topics: {topics_display}.")
             await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
             await ctx.send_message(LearnerMessage(state=state))
 
@@ -530,41 +530,21 @@ class _KBCaptureMiddleware(FunctionMiddleware):
         self.references: list[dict] = []
 
     async def process(self, context: FunctionInvocationContext, call_next: object) -> None:
-        import json as _json  # noqa: PLC0415
-
         name = context.function.name
         if "knowledge_base" in name:
             args = dict(context.arguments) if context.arguments else {}
-            self.query = str(args.get("query", ""))[:400]
+            self.query = str(args.get("query") or ", ".join(args.get("queries", []) or []) or "")[:400]
+            logger.info("[KB query] %s", self.query)
             await call_next()  # type: ignore[operator]
             result = context.result
             if result is not None:
-                result_str = str(result)
-                # Try to extract structured references from JSON result
-                try:
-                    parsed = _json.loads(result_str) if result_str.strip().startswith("{") else None
-                    if isinstance(parsed, dict):
-                        self.response_text = str(
-                            parsed.get("text") or parsed.get("content") or result_str
-                        )[:3000]
-                        sources = (
-                            parsed.get("sources")
-                            or parsed.get("references")
-                            or parsed.get("citations")
-                            or []
-                        )
-                        for s in sources if isinstance(sources, list) else []:
-                            if isinstance(s, dict):
-                                self.references.append({
-                                    "title": s.get("title") or s.get("name") or "KB Document",
-                                    "url": s.get("url") or s.get("source") or "",
-                                    "type": s.get("type") or "document",
-                                    "score": s.get("score") or s.get("relevance"),
-                                })
-                    else:
-                        self.response_text = result_str[:3000]
-                except (_json.JSONDecodeError, ValueError):
-                    self.response_text = result_str[:3000]
+                text_content = ""
+                if isinstance(result, list) and result:
+                    text_content = getattr(result[0], "text", None) or str(result)
+                else:
+                    text_content = str(result)
+                self.response_text = text_content[:3000]
+                logger.info("[KB response] (first 500 chars) %.500s", self.response_text)
         else:
             await call_next()  # type: ignore[operator]
 
