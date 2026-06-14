@@ -133,17 +133,17 @@ const PHASE_LABELS: Record<WorkflowStatus, string> = {
 };
 
 const PHASE_COLORS: Record<WorkflowStatus, string> = {
-  planning: "bg-amber-100 text-amber-700",
-  studying: "bg-blue-100 text-blue-700",
-  awaiting_assessment: "bg-violet-100 text-violet-700",
-  assessing: "bg-pink-100 text-pink-700",
-  exam_in_progress: "bg-violet-100 text-violet-700",
-  passed: "bg-emerald-100 text-emerald-700",
-  failed: "bg-rose-100 text-rose-700",
-  exam_failed: "bg-rose-100 text-rose-700",
-  max_retries_reached: "bg-rose-100 text-rose-700",
-  awaiting_cert_selection: "bg-amber-100 text-amber-700",
-  awaiting_path_confirmation: "bg-blue-100 text-blue-700",
+  planning:                  "bg-amber-50 text-amber-700 border border-amber-200",
+  studying:                  "bg-blue-50 text-blue-700 border border-blue-200",
+  awaiting_assessment:       "bg-violet-50 text-violet-700 border border-violet-200",
+  assessing:                 "bg-pink-50 text-pink-700 border border-pink-200",
+  exam_in_progress:          "bg-violet-50 text-violet-700 border border-violet-200",
+  passed:                    "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  failed:                    "bg-rose-50 text-rose-700 border border-rose-200",
+  exam_failed:               "bg-rose-50 text-rose-700 border border-rose-200",
+  max_retries_reached:       "bg-rose-50 text-rose-700 border border-rose-200",
+  awaiting_cert_selection:   "bg-amber-50 text-amber-700 border border-amber-200",
+  awaiting_path_confirmation:"bg-blue-50 text-blue-700 border border-blue-200",
 };
 
 const AGENT_LABELS: Record<AgentName, string> = {
@@ -155,11 +155,11 @@ const AGENT_LABELS: Record<AgentName, string> = {
 };
 
 const AGENT_COLORS: Record<AgentName, string> = {
-  curator: "bg-amber-100 text-amber-700",
-  study_plan: "bg-blue-100 text-blue-700",
-  engagement: "bg-violet-100 text-violet-700",
-  assessment: "bg-pink-100 text-pink-700",
-  certification_advisor: "bg-pink-100 text-pink-700",
+  curator:               "bg-amber-50 text-amber-700 border border-amber-200",
+  study_plan:            "bg-blue-50 text-blue-700 border border-blue-200",
+  engagement:            "bg-violet-50 text-violet-700 border border-violet-200",
+  assessment:            "bg-pink-50 text-pink-700 border border-pink-200",
+  certification_advisor: "bg-pink-50 text-pink-700 border border-pink-200",
 };
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
@@ -188,9 +188,7 @@ function TopicPicker({ selectedTopics, onChange }: TopicPickerProps) {
     <div className="space-y-4">
       {Array.from(grouped.entries()).map(([family, topics]) => (
         <div key={family}>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
-            {family}
-          </p>
+          <p className="section-label mb-2">{family}</p>
           <div className="flex flex-wrap gap-2">
             {topics.map((topic) => {
               const selected = selectedTopics.includes(topic.id);
@@ -202,13 +200,13 @@ function TopicPicker({ selectedTopics, onChange }: TopicPickerProps) {
                   disabled={atMax}
                   onClick={() => toggle(topic.id)}
                   aria-pressed={selected}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors
-                    ${selected
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-blue-400 hover:text-blue-600"
-                    }
-                    ${atMax ? "cursor-not-allowed opacity-40" : "cursor-pointer"}
-                  `}
+                  className={`topic-pill ${
+                    selected
+                      ? "topic-pill-active"
+                      : atMax
+                      ? "topic-pill-disabled"
+                      : "topic-pill-inactive"
+                  }`}
                 >
                   {topic.label}
                 </button>
@@ -217,8 +215,8 @@ function TopicPicker({ selectedTopics, onChange }: TopicPickerProps) {
           </div>
         </div>
       ))}
-      <p className="text-xs text-slate-400">
-        {selectedTopics.length}/10 topics selected — pick 1–10
+      <p className="text-xs font-medium text-slate-500">
+        {selectedTopics.length}/10 topics selected
       </p>
     </div>
   );
@@ -278,19 +276,31 @@ function ChatSidebar({
   }
 
   return (
-    <aside className="flex w-[420px] shrink-0 flex-col border-l border-slate-200 bg-slate-50">
+    <aside className="flex w-[420px] shrink-0 flex-col border-l border-slate-200 bg-white">
       {/* Header */}
-      <div className="border-b border-slate-200 px-4 py-3">
-        <p className="text-xs font-semibold text-slate-700">Learning Assistant</p>
-        <p className="text-xs text-slate-400">Powered by AG-UI</p>
+      <div className="px-5 py-4 border-b border-slate-100">
+        <p className="font-heading text-sm font-semibold text-slate-900">Learning Assistant</p>
+        <p className="text-slate-400 mt-0.5" style={{ fontSize: "11px" }}>
+          Powered by AG-UI · Azure AI Foundry
+        </p>
       </div>
 
       {/* Message list */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && (
-          <p className="text-xs text-slate-400 text-center pt-4">
-            Hi! I&apos;m your AI learning assistant. Start your session to begin.
-          </p>
+          <div className="flex flex-col items-center gap-3 pt-10 text-center px-4">
+            <div className="h-11 w-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+              <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-700">AI Learning Assistant</p>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Start your session to begin your personalized learning journey.
+              </p>
+            </div>
+          </div>
         )}
 
         {messages.map((msg) => (
@@ -299,10 +309,10 @@ function ChatSidebar({
             className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
           >
             {msg.role === "assistant" && (
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full mb-1 inline-block ${
+              <span className={`agent-badge mb-1.5 ${
                 msg.agentName && AGENT_COLORS[msg.agentName]
                   ? AGENT_COLORS[msg.agentName]
-                  : "bg-slate-100 text-slate-500"
+                  : "bg-slate-100 text-slate-600 border border-slate-200"
               }`}>
                 {msg.agentName && AGENT_LABELS[msg.agentName]
                   ? AGENT_LABELS[msg.agentName]
@@ -322,26 +332,20 @@ function ChatSidebar({
               />
             )}
             {msg.role === "assistant" && msg.workflowStatus === "awaiting_path_confirmation" && (
-              <div className="mb-2 w-full max-w-[85%] rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+              <div className="mb-2 w-full max-w-[85%] rounded-xl px-3 py-2.5 text-xs font-medium bg-blue-50 border border-blue-200 text-blue-700">
                 Your learning path is ready. Type any message to confirm and generate your study plan.
               </div>
             )}
-            <div
-              className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
-                msg.role === "user"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-slate-800 shadow-sm border border-slate-100"
-              }`}
-            >
+            <div className={msg.role === "user" ? "bubble-user" : "bubble-assistant"}>
               {msg.content || (msg.isStreaming ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-1 w-1 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="h-1 w-1 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="h-1 w-1 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "300ms" }} />
                 </span>
               ) : "")}
               {msg.isStreaming && msg.content && (
-                <span className="ml-0.5 inline-block h-3 w-0.5 bg-slate-500 animate-pulse" />
+                <span className="ml-0.5 inline-block h-3 w-0.5 bg-blue-500 animate-pulse" />
               )}
             </div>
           </div>
@@ -350,8 +354,8 @@ function ChatSidebar({
         {/* Active tool call indicators */}
         {activeToolCalls.map((tc) => (
           <div key={tc.toolCallId} className="flex justify-start">
-            <div className="max-w-[85%] rounded-xl px-3 py-2 text-xs bg-amber-50 text-amber-700 border border-amber-100 flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <div className="rounded-2xl rounded-tl-sm px-3.5 py-2 text-xs flex items-center gap-2 font-medium bg-blue-50 border border-blue-100 text-blue-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
               {tc.name.replace(/_/g, " ")}…
             </div>
           </div>
@@ -368,15 +372,15 @@ function ChatSidebar({
 
         {/* Error */}
         {error && (
-          <div className="rounded-lg bg-rose-50 border border-rose-100 px-3 py-2 text-xs text-rose-700">
+          <div className="rounded-xl px-4 py-3 text-xs font-medium bg-rose-50 border border-rose-200 text-rose-700">
             {error}
           </div>
         )}
 
         {engagementConfirmed && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 space-y-1">
-            <p className="text-xs font-semibold text-emerald-700">✓ Plan & reminders confirmed</p>
-            <p className="text-xs text-emerald-600 leading-relaxed">
+          <div className="rounded-xl px-4 py-3 space-y-1 bg-emerald-50 border border-emerald-200">
+            <p className="text-xs font-semibold text-emerald-700">Plan & reminders confirmed</p>
+            <p className="text-xs leading-relaxed text-emerald-600">
               Your study plan and engagement reminders are all set. Come back whenever you feel ready to take your assessment.
             </p>
           </div>
@@ -386,25 +390,24 @@ function ChatSidebar({
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="border-t border-slate-200 p-3 flex gap-2">
+      <form onSubmit={handleSubmit} className="p-4 flex gap-2 border-t border-slate-100">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask anything…"
           disabled={isRunning}
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs
-                     text-slate-900 placeholder:text-slate-400
-                     focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500
-                     disabled:opacity-50"
+          className="input flex-1"
         />
         <button
           type="submit"
           disabled={!input.trim() || isRunning}
-          className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white
-                     hover:bg-blue-700 disabled:opacity-40 transition-colors"
+          className="shrink-0 min-w-[44px] min-h-[44px] rounded-xl px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Send message"
         >
-          Send
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+          </svg>
         </button>
       </form>
     </aside>
@@ -566,28 +569,37 @@ export default function LearnerPage() {
     .map((id) => AZURE_TOPICS.find((t) => t.id === id)?.label ?? id);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
       {/* Header */}
-      <header className="shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur-sm z-10">
-        <div className="flex items-center justify-between px-4 py-3">
+      <header className="shrink-0 z-20 border-b border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between px-6 py-3">
+          {/* Brand */}
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="h-4 w-4" aria-hidden="true">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="white" className="h-5 w-5" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
               </svg>
             </div>
-            <h1 className="text-sm font-bold text-slate-900">Enterprise Learning System</h1>
+            <div>
+              <h1 className="font-heading text-sm font-bold leading-none text-slate-900 tracking-tight">
+                Enterprise Learning System
+              </h1>
+              <p className="text-blue-600 font-medium mt-0.5" style={{ fontSize: "10px" }}>
+                Azure AI Foundry
+              </p>
+            </div>
           </div>
 
+          {/* Status badge */}
           {sessionStarted && PHASE_LABELS[phase] && (
             <span className={`phase-badge ${PHASE_COLORS[phase]}`}>
-              <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+              <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" aria-hidden="true" />
               {PHASE_LABELS[phase]}
             </span>
           )}
 
-          <a href="/manager" className="text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors">
-            Manager view
+          <a href="/manager" className="btn-ghost text-xs font-medium tracking-wide">
+            Manager View
           </a>
         </div>
       </header>
@@ -604,18 +616,29 @@ export default function LearnerPage() {
           </div>
         ) : (
           <>
-          <main className="flex-1 overflow-y-auto px-4 py-8">
+          <main className="flex-1 overflow-y-auto px-6 py-8">
           {!sessionStarted ? (
             <div className="mx-auto max-w-2xl animate-fade-in">
-              <div className="card text-center mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Welcome back</h2>
-                <p className="text-sm text-slate-500">Start an AI-guided certification learning session.</p>
+              {/* Hero welcome card */}
+              <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-600 to-blue-700 p-8 mb-6 text-white shadow-md">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold bg-white/20 text-white border border-white/30">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                    Azure AI Foundry
+                  </span>
+                </div>
+                <h2 className="font-heading text-2xl font-bold mb-2 tracking-tight">
+                  Enterprise Learning System
+                </h2>
+                <p className="text-sm leading-relaxed text-blue-100">
+                  Start an AI-guided certification learning session powered by Azure AI Foundry Hosted Agents.
+                </p>
               </div>
 
               <div className="card space-y-6">
                 {/* Learner ID */}
                 <div>
-                  <label htmlFor="learner-id" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label htmlFor="learner-id" className="section-label block mb-2">
                     Learner ID
                   </label>
                   <input
@@ -624,13 +647,13 @@ export default function LearnerPage() {
                     value={learnerId}
                     onChange={(e) => setLearnerId(e.target.value)}
                     placeholder="e.g. EMP-001"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="input"
                   />
                 </div>
 
                 {/* Topic picker */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-3">
+                  <label className="section-label block mb-3">
                     Select topics you want to learn
                   </label>
                   <TopicPicker selectedTopics={selectedTopics} onChange={setSelectedTopics} />
@@ -639,21 +662,21 @@ export default function LearnerPage() {
                 {/* Selected topic chips summary */}
                 {selectedTopics.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-slate-700 mb-2">Selected topics</p>
+                    <p className="section-label mb-2">Selected</p>
                     <div className="flex flex-wrap gap-1.5">
                       {selectedTopics.map((id) => {
                         const label = AZURE_TOPICS.find((t) => t.id === id)?.label ?? id;
                         return (
                           <span
                             key={id}
-                            className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs text-blue-700"
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-blue-50 border border-blue-200 text-blue-700"
                           >
                             {label}
                             <button
                               type="button"
                               aria-label={`Remove ${label}`}
                               onClick={() => setSelectedTopics(selectedTopics.filter((t) => t !== id))}
-                              className="ml-0.5 text-blue-400 hover:text-blue-700"
+                              className="ml-0.5 text-blue-400 hover:text-blue-600 transition-colors"
                             >
                               ×
                             </button>
@@ -667,7 +690,7 @@ export default function LearnerPage() {
                 <button
                   onClick={handleStartSession}
                   disabled={!canStart}
-                  className="btn-primary w-full"
+                  className="btn-primary w-full py-3"
                 >
                   Start learning session
                 </button>
@@ -675,51 +698,53 @@ export default function LearnerPage() {
             </div>
           ) : (
             <div className="space-y-8 animate-fade-in">
-              {/* Learner info + inferred cert banner */}
-              <section className="card space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500">Learner</p>
-                    <p className="text-sm font-bold text-slate-900">
-                      {(workflowState.learner as LearnerContext | undefined)?.learner_id ?? learnerId}
-                    </p>
+              {/* Learner info + cert banner */}
+              <section className="card overflow-hidden p-0">
+                {/* Left accent bar for premium feel */}
+                <div className="flex">
+                  <div className="w-1 bg-blue-600 rounded-l-xl shrink-0" />
+                  <div className="flex-1">
+                    <div className="px-5 py-4 flex items-center justify-between gap-4 border-b border-slate-100">
+                      <div>
+                        <p className="section-label mb-0.5">Learner</p>
+                        <p className="text-base font-bold text-slate-900">
+                          {(workflowState.learner as LearnerContext | undefined)?.learner_id ?? learnerId}
+                        </p>
+                      </div>
+                      {certDisplay ? (
+                        <div className="text-right">
+                          <p className="section-label mb-0.5">Target certification</p>
+                          <p className="text-sm font-bold text-blue-600">{certDisplay}</p>
+                        </div>
+                      ) : (
+                        <div className="text-right">
+                          <p className="section-label mb-0.5">Certification</p>
+                          <p className="text-sm italic text-slate-400">Determining…</p>
+                        </div>
+                      )}
+                    </div>
+                    {activeTopicLabels.length > 0 && (
+                      <div className="px-5 py-3">
+                        <p className="section-label mb-2">Topics</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeTopicLabels.map((label) => (
+                            <span
+                              key={label}
+                              className="rounded-full px-2.5 py-1 text-xs font-medium bg-slate-100 border border-slate-200 text-slate-600"
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {certDisplay ? (
-                    <div className="text-right">
-                      <p className="text-xs font-semibold text-slate-500">Recommended certification</p>
-                      <p className="text-sm font-bold text-blue-700">{certDisplay}</p>
-                    </div>
-                  ) : (
-                    <div className="text-right">
-                      <p className="text-xs font-semibold text-slate-500">Certification</p>
-                      <p className="text-sm text-slate-400 italic">Determining…</p>
-                    </div>
-                  )}
                 </div>
-
-                {/* Active topic chips */}
-                {activeTopicLabels.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500 mb-1.5">Topics</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {activeTopicLabels.map((label) => (
-                        <span
-                          key={label}
-                          className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs text-slate-600"
-                        >
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </section>
 
               {learningPath.length > 0 && (
                 <section aria-labelledby="path-heading">
-                  <h2 id="path-heading" className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-                    Learning Path
-                  </h2>
+                  <h2 id="path-heading" className="section-label mb-4">Learning Path</h2>
                   <CourseSection
                     certId={recommendedCertId ?? learningPath[0]?.cert_id ?? ""}
                     certName={recommendedCertName ?? certDisplay ?? "Azure Certification"}
@@ -731,28 +756,28 @@ export default function LearnerPage() {
 
               {scheduleContext && (
                 <section aria-labelledby="prefs-heading">
-                  <h2 id="prefs-heading" className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">
-                    Schedule Preferences Considered
-                  </h2>
-                  <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 flex flex-wrap gap-4 text-sm">
+                  <h2 id="prefs-heading" className="section-label mb-3">Schedule Preferences</h2>
+                  <div className="card flex flex-wrap gap-5 text-sm">
                     <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Study days</p>
-                      <p className="font-medium text-slate-700">{scheduleContext.preferred_study_days.join(", ")}</p>
+                      <p className="section-label mb-1">Study days</p>
+                      <p className="font-medium text-slate-800">{scheduleContext.preferred_study_days.join(", ")}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Session length</p>
-                      <p className="font-medium text-slate-700">{scheduleContext.session_duration_hours}h</p>
+                      <p className="section-label mb-1">Session length</p>
+                      <p className="font-semibold text-slate-800 tabular-nums">{scheduleContext.session_duration_hours}h</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Preferred slot</p>
-                      <p className="font-medium text-slate-700 capitalize">{scheduleContext.preferred_slot}</p>
+                      <p className="section-label mb-1">Preferred slot</p>
+                      <p className="font-medium capitalize text-slate-800">{scheduleContext.preferred_slot}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Weekly capacity</p>
-                      <p className="font-medium text-slate-700">{scheduleContext.capacity_hours_per_week}h/week</p>
+                      <p className="section-label mb-1">Weekly capacity</p>
+                      <p className="font-semibold text-slate-800 tabular-nums">{scheduleContext.capacity_hours_per_week}h/week</p>
                     </div>
                     {scheduleContext.is_fallback && (
-                      <p className="w-full text-xs text-amber-600">⚠ No calendar data found — using default preferences.</p>
+                      <p className="w-full text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        No calendar data found — using default preferences.
+                      </p>
                     )}
                   </div>
                 </section>
@@ -760,18 +785,14 @@ export default function LearnerPage() {
 
               {timelineSessions.length > 0 && (
                 <section aria-labelledby="plan-heading">
-                  <h2 id="plan-heading" className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-                    Study Plan
-                  </h2>
+                  <h2 id="plan-heading" className="section-label mb-4">Study Plan</h2>
                   <StudyPlanTimeline sessions={timelineSessions} milestones={studyMilestones} />
                 </section>
               )}
 
               {engagementProposal && (
                 <section aria-labelledby="engagement-heading">
-                  <h2 id="engagement-heading" className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-                    Engagement Plan
-                  </h2>
+                  <h2 id="engagement-heading" className="section-label mb-4">Engagement Plan</h2>
                   <EngagementProposalView
                     proposal={engagementProposal}
                     studySessions={timelineSessions as StudySessionRef[]}
@@ -789,9 +810,7 @@ export default function LearnerPage() {
 
               {(phase === "assessing") && assessmentResult && (
                 <section aria-labelledby="assessment-heading">
-                  <h2 id="assessment-heading" className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-                    Assessment
-                  </h2>
+                  <h2 id="assessment-heading" className="section-label mb-4">Assessment</h2>
                   <AssessmentPanel
                     questions={[]}
                     currentQuestionIndex={0}
@@ -810,9 +829,7 @@ export default function LearnerPage() {
 
               {(phase === "passed" || phase === "failed" || phase === "exam_failed") && latestAssessmentFull && (
                 <section aria-labelledby="results-heading">
-                  <h2 id="results-heading" className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-                    Assessment Results
-                  </h2>
+                  <h2 id="results-heading" className="section-label mb-4">Assessment Results</h2>
                   <AssessmentResults
                     score={latestAssessmentFull.score}
                     passed={latestAssessmentFull.passed}
@@ -828,11 +845,17 @@ export default function LearnerPage() {
               )}
 
               {(phase === "planning" || phase === "studying") && learningPath.length === 0 && (
-                <div className="flex flex-col items-center gap-3 py-16 text-slate-400">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                  <p className="text-sm">
-                    {phase === "planning" ? "Planning your learning path…" : "Building study schedule…"}
-                  </p>
+                <div className="flex flex-col items-center gap-4 py-20">
+                  <div className="relative h-10 w-10">
+                    <div className="absolute inset-0 rounded-full border-2 border-blue-100" />
+                    <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-blue-600" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-slate-700">
+                      {phase === "planning" ? "Planning your learning path…" : "Building study schedule…"}
+                    </p>
+                    <p className="text-xs mt-1 text-slate-500">Azure AI agents are working on your personalized plan</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -858,12 +881,14 @@ export default function LearnerPage() {
 
       {showConfirmToast && (
         <div
-          className="fixed bottom-6 right-6 z-50 rounded-xl px-5 py-3 shadow-xl text-sm font-medium animate-fade-in"
-          style={{ background: "#0f3d2a", border: "1px solid #1a5a3d", color: "#34d399" }}
+          className="fixed bottom-6 right-6 z-50 rounded-2xl px-5 py-3.5 shadow-lg text-sm font-semibold animate-fade-in flex items-center gap-2.5 bg-emerald-600 text-white"
           role="status"
           aria-live="polite"
         >
-          ✓ Alerts activated! Your study reminders have been scheduled.
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Alerts activated — study reminders scheduled.
         </div>
       )}
     </div>
