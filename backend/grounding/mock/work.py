@@ -96,3 +96,28 @@ class MockWorkIQProvider(WorkIQProvider):
                 preferred_study_days=signal.get("preferred_study_days", ["Monday", "Wednesday", "Friday"]),
                 session_duration_hours=float(signal.get("session_duration_hours", 1.0)),
             )
+
+    def engagement_profile(self, employee_id: str) -> "EngagementProfile":
+        """Return the Work IQ engagement profile for *employee_id*.
+
+        Raises KeyError if the employee is not found in fixture data.
+        This method intentionally raises (unlike availability()) so the
+        Engagement Agent surfaces missing-data assumptions in reasoning.
+        """
+        from agents.tools.work_iq_tools import EngagementProfile  # noqa: PLC0415
+
+        signals = _calendar_signals()
+        signal = signals.get(employee_id)
+        if signal is None:
+            raise KeyError(f"No engagement profile for employee '{employee_id}'")
+        return EngagementProfile(
+            employee_id=employee_id,
+            focusPeakStart=signal["focusPeakStart"],
+            focusPeakEnd=signal["focusPeakEnd"],
+            meetingWindowStart=signal["meetingWindowStart"],
+            meetingWindowEnd=signal["meetingWindowEnd"],
+            preferredChannel=signal["preferredChannel"],
+            avgStreakDays=int(signal["avgStreakDays"]),
+            responseRateByChannel=signal["responseRateByChannel"],
+            teamType=signal["teamType"],
+        )

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { QuestionResult } from "@/app/lib/assessment-types";
+import type { AssessmentQuestion, QuestionResult } from "@/app/lib/assessment-types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -12,6 +12,8 @@ interface AssessmentResultsProps {
   passed: boolean;
   weakAreas: string[];
   perQuestionResults: QuestionResult[];
+  questions?: AssessmentQuestion[];
+  reasoningDistribution?: string | null;
   recommendedCertName?: string | null;
   recommendedCertId?: string | null;
   onRetry?: () => void;
@@ -23,10 +25,11 @@ interface AssessmentResultsProps {
 
 interface QuestionResultRowProps {
   result: QuestionResult;
+  question?: AssessmentQuestion;
   index: number;
 }
 
-function QuestionResultRow({ result, index }: QuestionResultRowProps) {
+function QuestionResultRow({ result, question, index }: QuestionResultRowProps) {
   const [expanded, setExpanded] = useState(false);
 
   const isCorrect = result.partial_score >= 1.0;
@@ -54,13 +57,13 @@ function QuestionResultRow({ result, index }: QuestionResultRowProps) {
           {isCorrect ? "✓" : isPartial ? "~" : "✗"}
         </span>
 
-        <span className="flex-1 text-xs font-medium text-slate-700">
+        <span className="flex-1 text-sm text-slate-700">
           Q{index + 1}
         </span>
 
         {/* Partial score badge */}
         {isPartial && (
-          <span className="text-xs text-amber-600 font-semibold">
+          <span className="text-xs text-amber-600 font-semibold shrink-0">
             {Math.round(result.partial_score * 100)}% credit
           </span>
         )}
@@ -72,7 +75,7 @@ function QuestionResultRow({ result, index }: QuestionResultRowProps) {
           viewBox="0 0 24 24"
           strokeWidth={2}
           stroke="currentColor"
-          className={`h-3.5 w-3.5 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+          className={`h-3.5 w-3.5 text-slate-400 transition-transform shrink-0 ${expanded ? "rotate-180" : ""}`}
           aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
@@ -80,7 +83,20 @@ function QuestionResultRow({ result, index }: QuestionResultRowProps) {
       </button>
 
       {expanded && (
-        <div className="border-t border-slate-100 px-4 py-3 bg-slate-50 space-y-2">
+        <div className="border-t border-slate-100 px-4 py-3 bg-slate-50 space-y-2.5">
+          {/* Question text (full, if collapsed in header) */}
+          {question?.text && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 mb-0.5">Question</p>
+              <p className="text-xs text-slate-800 leading-relaxed">{question.text}</p>
+            </div>
+          )}
+          {/* Scenario context */}
+          {question?.scenario_context && (
+            <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2">
+              <p className="text-xs text-blue-700 leading-relaxed">{question.scenario_context}</p>
+            </div>
+          )}
           {/* Your answer */}
           <div>
             <p className="text-xs font-semibold text-slate-500 mb-0.5">Your answer</p>
@@ -102,6 +118,22 @@ function QuestionResultRow({ result, index }: QuestionResultRowProps) {
               <p className="text-xs text-slate-600 leading-relaxed">{result.explanation}</p>
             </div>
           )}
+          {/* Grounding reference */}
+          {question?.grounding_reference?.url && (
+            <div className="pt-1">
+              <a
+                href={question.grounding_reference.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                {question.grounding_reference.title || "Microsoft Learn reference"}
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -117,10 +149,13 @@ export default function AssessmentResults({
   passed,
   weakAreas,
   perQuestionResults,
+  questions = [],
+  reasoningDistribution,
   recommendedCertName,
   recommendedCertId,
   onRetry,
 }: AssessmentResultsProps) {
+  const questionMap = new Map(questions.map((q) => [q.id, q]));
   const certId = recommendedCertId ?? null;
   const certName = recommendedCertName ?? certId ?? null;
   const certUrl = certId
@@ -213,6 +248,16 @@ export default function AssessmentResults({
         </div>
       )}
 
+      {/* Reasoning distribution */}
+      {reasoningDistribution && (
+        <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">
+            Question distribution rationale
+          </p>
+          <p className="text-xs text-blue-800 leading-relaxed">{reasoningDistribution}</p>
+        </div>
+      )}
+
       {/* Per-question breakdown */}
       {perQuestionResults.length > 0 && (
         <div>
@@ -221,7 +266,12 @@ export default function AssessmentResults({
           </p>
           <div className="space-y-2">
             {perQuestionResults.map((result, idx) => (
-              <QuestionResultRow key={result.question_id} result={result} index={idx} />
+              <QuestionResultRow
+                key={result.question_id}
+                result={result}
+                question={questionMap.get(result.question_id)}
+                index={idx}
+              />
             ))}
           </div>
         </div>

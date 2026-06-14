@@ -119,23 +119,36 @@ async def test_full_pass_vertical() -> None:
 
     executor = AssessmentExecutor.__new__(AssessmentExecutor)
     executor.id = "assessment"
-    executor._agent = MagicMock()
+    # New executor uses _mcp_tool and _client (not _agent directly)
+    executor._client = MagicMock()
 
-    ctx_store: dict = {}
-    ctx = _make_ctx(ctx_store=ctx_store)
+    class _MockMCP:
+        functions: list = []
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+
+    executor._mcp_tool = _MockMCP()
+
+    # Use explicit captured dict to avoid pytest asyncio lambda closure issue
+    captured: dict = {}
+    ctx = MagicMock()
+    ctx.get_state = MagicMock(side_effect=lambda k: captured.get(k))
+    ctx.set_state = MagicMock(side_effect=lambda k, v: captured.update({k: v}))
+    ctx.yield_output = AsyncMock()
+    ctx.send_message = AsyncMock()
 
     with patch(
         "workflow.dispatcher.generate_assessment_questions",
-        new=AsyncMock(return_value=questions),
+        new=AsyncMock(return_value=(questions, None)),
     ):
         await executor.handle(HITLConfirmedMessage(state=state), ctx)
 
     # After stage 1: questions stored in ctx, status = exam_in_progress
-    assert ctx_store.get("assessment_questions_full") is not None, (
+    assert captured.get("assessment_questions_full") is not None, (
         "Full questions must be stored in ctx after generation"
     )
-    assert len(ctx_store["assessment_questions_full"]) == 15
-    saved = ctx_store.get("workflow_state", {})
+    assert len(captured["assessment_questions_full"]) == 15
+    saved = captured.get("workflow_state", {})
     assert saved.get("workflow_status") == "exam_in_progress", (
         f"Expected exam_in_progress, got {saved.get('workflow_status')}"
     )
@@ -144,12 +157,19 @@ async def test_full_pass_vertical() -> None:
 
     # --- Stage 2: Submit all-correct answers ---
     answers = _make_answers(questions, all_correct=True)
-    state2 = WorkflowState.model_validate(ctx_store["workflow_state"])
+    state2 = WorkflowState.model_validate(captured["workflow_state"])
     object.__setattr__(state2, "assessment_answers", answers)
     object.__setattr__(state2, "workflow_status", "exam_in_progress")
 
-    ctx2 = _make_ctx(ctx_store=ctx_store)
-    await executor.handle_answers(AssessmentAnswersMessage(state=state2), ctx2)
+    ctx_store = captured  # reuse same dict for stage 2
+    ctx2 = MagicMock()
+    ctx2.get_state = MagicMock(side_effect=lambda k: ctx_store.get(k))
+    ctx2.set_state = MagicMock(side_effect=lambda k, v: ctx_store.update({k: v}))
+    ctx2.yield_output = AsyncMock()
+    ctx2.send_message = AsyncMock()
+
+    with patch("agents.tools.assessment_tools.save_assessment_attempt", return_value={"status": "saved", "attempt_number": 1}):
+        await executor.handle_answers(AssessmentAnswersMessage(state=state2), ctx2)
 
     # Must route to CertificationAdvisorExecutor via AssessmentPassedMessage
     ctx2.send_message.assert_called_once()
@@ -258,16 +278,16 @@ async def test_question_generation_json_retry_succeeds() -> None:
     mock_agent = MagicMock()
     mock_agent.run = mock_agent_run
 
-    result = await generate_assessment_questions(
+    questions_result, reasoning = await generate_assessment_questions(
         agent=mock_agent,
         cert_id="AZ-204",
         domain_weights={"Azure Compute": 0.5, "Azure Storage": 0.5},
     )
 
-    assert len(result) == 15, f"Expected 15 questions, got {len(result)}"
+    assert len(questions_result) == 15, f"Expected 15 questions, got {len(questions_result)}"
     assert call_count == 2, f"Expected exactly 2 agent calls (retry), got {call_count}"
     # Returned questions must have no correct_answers stripped (they are full AssessmentQuestion)
-    for q in result:
+    for q in questions_result:
         assert isinstance(q, AssessmentQuestion)
         assert len(q.correct_answers) > 0
 

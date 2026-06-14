@@ -10,6 +10,11 @@ import { CuratorOutputCard } from "@/components/CuratorOutputCard";
 import { CertSelectionCard } from "@/components/CertSelectionCard";
 import StudyPlanTimeline from "@/components/StudyPlanTimeline";
 import HITLConfirmation from "@/components/HITLConfirmation";
+import EngagementProposalView, {
+  type EngagementProposal,
+  type StudySessionRef,
+  type StudyMilestoneRef,
+} from "@/components/EngagementProposalView";
 import AssessmentPanel from "@/components/AssessmentPanel";
 import ExamInterface from "@/components/ExamInterface";
 import AssessmentResults from "@/components/AssessmentResults";
@@ -90,6 +95,7 @@ interface WorkflowState extends Record<string, unknown> {
   learning_path: LearningPathItem[];
   study_plan: StudyPlanSession[];
   engagement: EngagementStatus | null;
+  engagement_proposal: EngagementProposal | null;
   assessment_results: AssessmentResult[];
   retry_count: number;
   max_retries: number;
@@ -242,6 +248,7 @@ interface ChatSidebarProps {
   onHITLDecline?: () => void;
   showHITL?: boolean;
   hitlHours?: number;
+  engagementConfirmed?: boolean;
 }
 
 function ChatSidebar({
@@ -254,6 +261,7 @@ function ChatSidebar({
   onHITLDecline,
   showHITL,
   hitlHours = 0,
+  engagementConfirmed = false,
 }: ChatSidebarProps) {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -365,6 +373,15 @@ function ChatSidebar({
           </div>
         )}
 
+        {engagementConfirmed && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 space-y-1">
+            <p className="text-xs font-semibold text-emerald-700">✓ Plan & reminders confirmed</p>
+            <p className="text-xs text-emerald-600 leading-relaxed">
+              Your study plan and engagement reminders are all set. Come back whenever you feel ready to take your assessment.
+            </p>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
@@ -405,9 +422,13 @@ export default function LearnerPage() {
   const [showHITL, setShowHITL] = useState(false);
 
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const frozenExamQuestionsRef = useRef<AssessmentQuestion[]>([]);
+  const [engagementConfirmed, setEngagementConfirmed] = useState(false);
+  const [showConfirmToast, setShowConfirmToast] = useState(false);
+  const [showAdjustMessage, setShowAdjustMessage] = useState(false);
 
   const { messages, agentState: workflowState, isRunning, activeToolCalls, error, resetSession, sendMessage } =
-    useAgentChat<WorkflowState>(`${BACKEND_URL}/api/learn`);
+    useAgentChat<WorkflowState>(process.env.NEXT_PUBLIC_AGENT_URL || `${BACKEND_URL}/api/learn`);
 
   // Detect HITL tool call
   const hitlToolCall = activeToolCalls.find((tc) => tc.name === "confirm_assessment_readiness");
@@ -433,6 +454,7 @@ export default function LearnerPage() {
       learning_path: [],
       study_plan: [],
       engagement: null,
+      engagement_proposal: null,
       assessment_results: [],
       retry_count: 0,
       max_retries: 3,
@@ -462,11 +484,23 @@ export default function LearnerPage() {
     sendMessage("declined");
   }
 
+  function handleEngagementConfirm() {
+    setEngagementConfirmed(true);
+    setShowConfirmToast(true);
+    setTimeout(() => setShowConfirmToast(false), 3000);
+  }
+
+  function handleEngagementAdjust() {
+    setShowAdjustMessage(true);
+  }
+
   function handleRetryAssessment() {
     sendMessage("retry");
   }
 
   function handleSubmitAssessment(answers: AssessmentAnswers) {
+    // Freeze questions before resetSession wipes the workflow state.
+    frozenExamQuestionsRef.current = examQuestions;
     // Build updated state with answers populated — the next POST to /api/learn
     // will include this state, which triggers SeedExecutor's exam_in_progress branch.
     const updatedState: WorkflowState = {
@@ -491,6 +525,7 @@ export default function LearnerPage() {
   }));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const studyMilestones = ((workflowState as any).study_milestones as StudyMilestone[] | undefined) ?? [];
+  const engagementProposal = (workflowState.engagement_proposal as EngagementProposal | null | undefined) ?? null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scheduleContext = (workflowState as any).schedule_context as {
     preferred_study_days: string[];
@@ -732,6 +767,26 @@ export default function LearnerPage() {
                 </section>
               )}
 
+              {engagementProposal && (
+                <section aria-labelledby="engagement-heading">
+                  <h2 id="engagement-heading" className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
+                    Engagement Plan
+                  </h2>
+                  <EngagementProposalView
+                    proposal={engagementProposal}
+                    studySessions={timelineSessions as StudySessionRef[]}
+                    studyMilestones={studyMilestones as StudyMilestoneRef[]}
+                    onConfirm={engagementConfirmed ? undefined : handleEngagementConfirm}
+                    onAdjust={handleEngagementAdjust}
+                  />
+                  {showAdjustMessage && !engagementConfirmed && (
+                    <p className="mt-3 text-xs text-slate-400 text-center">
+                      Alert customization coming soon.
+                    </p>
+                  )}
+                </section>
+              )}
+
               {(phase === "assessing") && assessmentResult && (
                 <section aria-labelledby="assessment-heading">
                   <h2 id="assessment-heading" className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
@@ -763,6 +818,8 @@ export default function LearnerPage() {
                     passed={latestAssessmentFull.passed}
                     weakAreas={latestAssessmentFull.weak_areas}
                     perQuestionResults={latestAssessmentFull.per_question_results ?? []}
+                    questions={frozenExamQuestionsRef.current.length > 0 ? frozenExamQuestionsRef.current : examQuestions}
+                    reasoningDistribution={(latestAssessmentFull as { reasoning_distribution?: string | null }).reasoning_distribution ?? null}
                     recommendedCertName={recommendedCertName ?? null}
                     recommendedCertId={recommendedCertId ?? null}
                     onRetry={phase === "exam_failed" ? handleRetryAssessment : undefined}
@@ -793,10 +850,22 @@ export default function LearnerPage() {
           hitlHours={0}
           onHITLConfirm={handleHITLConfirm}
           onHITLDecline={handleHITLDecline}
+          engagementConfirmed={engagementConfirmed}
         />
           </>
         )}
       </div>
+
+      {showConfirmToast && (
+        <div
+          className="fixed bottom-6 right-6 z-50 rounded-xl px-5 py-3 shadow-xl text-sm font-medium animate-fade-in"
+          style={{ background: "#0f3d2a", border: "1px solid #1a5a3d", color: "#34d399" }}
+          role="status"
+          aria-live="polite"
+        >
+          ✓ Alerts activated! Your study reminders have been scheduled.
+        </div>
+      )}
     </div>
   );
 }

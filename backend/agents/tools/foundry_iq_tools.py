@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Annotated
+
+logger = logging.getLogger(__name__)
 
 import httpx
 from agent_framework import tool
@@ -115,6 +118,8 @@ async def search_knowledge_base(
     ],
 ) -> str:
     """Search the enterprise Knowledge Base for cert recommendations and learning guidance."""
+    logger.info("[KB search] query=%r", query)
+
     if not config.USE_REAL_IQ:
         return _KB_MOCK_RESPONSE
 
@@ -135,9 +140,13 @@ async def search_knowledge_base(
             )
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        return f"Knowledge base search failed: HTTP {exc.response.status_code} — {exc}"
+        result = f"Knowledge base search failed: HTTP {exc.response.status_code} — {exc}"
+        logger.warning("[KB search] %s", result)
+        return result
     except Exception as exc:  # noqa: BLE001
-        return f"Knowledge base search failed: {exc}"
+        result = f"Knowledge base search failed: {exc}"
+        logger.warning("[KB search] %s", result)
+        return result
 
     # Parse SSE response: find line starting with `data:` → json.loads → extract text
     raw_content = response.content.decode("utf-8", errors="replace")
@@ -146,8 +155,14 @@ async def search_knowledge_base(
             data_str = line[len("data:"):].strip()
             try:
                 parsed = json.loads(data_str)
-                return parsed["result"]["content"][0]["text"]
+                text = parsed["result"]["content"][0]["text"]
+                logger.info("[KB search] result (first 500 chars)=%.500s", text)
+                return text
             except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
-                return f"Knowledge base search failed: could not parse SSE payload — {exc}"
+                result = f"Knowledge base search failed: could not parse SSE payload — {exc}"
+                logger.warning("[KB search] %s", result)
+                return result
 
-    return "Knowledge base search failed: no data line found in SSE response"
+    result = "Knowledge base search failed: no data line found in SSE response"
+    logger.warning("[KB search] %s", result)
+    return result

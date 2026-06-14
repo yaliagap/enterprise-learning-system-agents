@@ -38,21 +38,29 @@ MS_LEARN_MCP_URL = "https://learn.microsoft.com/api/mcp"
 def create_kb_mcp_tool() -> MCPStreamableHTTPTool | None:
     """Return an MCPStreamableHTTPTool for the enterprise KB, or None in mock mode.
 
-    Uses a pre-configured httpx.AsyncClient so the api-key header is sent on
-    every request including the MCP initialize handshake (header_provider only
-    fires after the session is established).
+    Uses DefaultAzureCredential (managed identity in Foundry, az login locally).
+    Falls back to api-key header if AZURE_SEARCH_API_KEY is set (legacy/dev override).
     """
     if not config.USE_REAL_IQ:
         return None
     import httpx  # noqa: PLC0415
+    from azure.identity import DefaultAzureCredential  # noqa: PLC0415
 
     url = (
         f"{config.AZURE_SEARCH_ENDPOINT}"
         f"/knowledgebases/{config.FOUNDRY_IQ_KB_NAME}"
         f"/mcp?api-version=2025-11-01-Preview"
     )
+
+    if config.AZURE_SEARCH_API_KEY:
+        auth_headers = {"api-key": config.AZURE_SEARCH_API_KEY}
+    else:
+        credential = DefaultAzureCredential()
+        token = credential.get_token("https://search.azure.com/.default").token
+        auth_headers = {"Authorization": f"Bearer {token}"}
+
     http_client = httpx.AsyncClient(
-        headers={"api-key": config.AZURE_SEARCH_API_KEY},
+        headers=auth_headers,
         timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0),
     )
     return MCPStreamableHTTPTool(

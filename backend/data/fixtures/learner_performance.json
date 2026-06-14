@@ -1,0 +1,167 @@
+{
+  "_metadata": {
+    "synthetic": true,
+    "generated": "2026-06-13",
+    "version": "1.1",
+    "description": "Synthetic assessment attempt history for adaptive question distribution. Domain names match the official exam skill areas from cert_profiles.md exactly."
+  },
+  "records": [
+    {
+      "learner_id": "EMP-001",
+      "cert_id": "AZ-104",
+      "attempt_number": 1,
+      "score": 62.0,
+      "domain_scores": {
+        "Manage Azure identities and governance": 48.0,
+        "Implement and manage storage": 71.0,
+        "Deploy and manage Azure compute resources": 66.0,
+        "Implement and manage virtual networking": 52.0,
+        "Monitor and maintain Azure resources": 74.0
+      },
+      "weak_areas": [
+        "Manage Azure identities and governance",
+        "Implement and manage virtual networking",
+        "Deploy and manage Azure compute resources"
+      ],
+      "completed_at": "2026-05-20T14:30:00Z"
+    },
+    {
+      "learner_id": "EMP-002",
+      "cert_id": "AZ-104",
+      "attempt_number": 1,
+      "score": 58.0,
+      "domain_scores": {
+        "Manage Azure identities and governance": 45.0,
+        "Implement and manage storage": 68.0,
+        "Deploy and manage Azure compute resources": 55.0,
+        "Implement and manage virtual networking": 60.0,
+        "Monitor and maintain Azure resources": 62.0
+      },
+      "weak_areas": [
+        "Manage Azure identities and governance",
+        "Deploy and manage Azure compute resources",
+        "Implement and manage storage",
+        "Implement and manage virtual networking",
+        "Monitor and maintain Azure resources"
+      ],
+      "completed_at": "2026-04-10T09:00:00Z"
+    },
+    {
+      "learner_id": "EMP-002",
+      "cert_id": "AZ-104",
+      "attempt_number": 2,
+      "score": 76.0,
+      "domain_scores": {
+        "Manage Azure identities and governance": 72.0,
+        "Implement and manage storage": 80.0,
+        "Deploy and manage Azure compute resources": 74.0,
+        "Implement and manage virtual networking": 75.0,
+        "Monitor and maintain Azure resources": 79.0
+      },
+      "weak_areas": [],
+      "completed_at": "2026-05-15T11:00:00Z"
+    },
+    {
+      "learner_id": "EMP-001",
+      "cert_id": "AI-103",
+      "attempt_number": 1,
+      "score": 40.0,
+      "domain_scores": {
+        "Plan and manage Azure AI solutions": 65.0,
+        "Implement generative AI and agentic solutions": 45.0,
+        "Implement computer vision solutions": 33.0,
+        "Implement natural language processing solutions": 33.0,
+        "Implement knowledge mining and document intelligence": 42.0,
+        "Apply responsible AI and content safety": 58.0
+      },
+      "weak_areas": [
+        "Implement generative AI and agentic solutions",
+        "Implement computer vision solutions",
+        "Implement natural language processing solutions",
+        "Implement knowledge mining and document intelligence",
+        "Apply responsible AI and content safety"
+      ],
+      "completed_at": "2026-06-13T21:57:51Z"
+    },
+    {
+      "learner_id": "EMP-001",
+      "cert_id": "AI-103",
+      "attempt_number": 2,
+      "score": 53.33,
+      "domain_scores": {
+        "Plan and manage Azure AI solutions": 50.0,
+        "Implement computer vision solutions": 100.0,
+        "Apply responsible AI and content safety": 40.0,
+        "Implement generative AI and agentic solutions": 33.3,
+        "Implement knowledge mining and document intelligence": 100.0
+      },
+      "weak_areas": [
+        "Plan and manage Azure AI solutions",
+        "Apply responsible AI and content safety",
+        "Implement generative AI and agentic solutions"
+      ],
+      "completed_at": "2026-06-13T22:28:20.206883Z"
+    },
+    {
+      "learner_id": "EMP-001",
+      "cert_id": "AI-103",
+      "attempt_number": 3,
+      "score": 40.0,
+      "domain_scores": {
+        "Plan and manage Azure AI solutions": 50.0,
+        "Implement knowledge mining and document intelligence": 100.0,
+        "Implement generative AI and agentic solutions": 100.0,
+        "Apply responsible AI and content safety": 12.5
+      },
+      "weak_areas": [
+        "Plan and manage Azure AI solutions",
+        "Apply responsible AI and content safety"
+      ],
+      "completed_at": "2026-06-13T22:42:52.959441Z"
+    },
+    {
+      "learner_id": "EMP-001",
+      "cert_id": "AZ-104",
+      "attempt_number": 2,
+      "score": 20.0,
+      "domain_scores": {
+        "Manage Azure identities and governance": 20.0,
+        "Implement and manage storage": 0.0,
+        "Monitor and maintain Azure resources": 25.0,
+        "Deploy and manage Azure compute resources": 0.0,
+        "Implement and manage virtual networking": 33.3
+      },
+      "weak_areas": [
+        "Manage Azure identities and governance",
+        "Implement and manage storage",
+        "Monitor and maintain Azure resources",
+        "Deploy and manage Azure compute resources",
+        "Implement and manage virtual networking"
+      ],
+      "completed_at": "2026-06-13T23:12:33.675054Z"
+    },
+    {
+      "learner_id": "EMP-001",
+      "cert_id": "AI-103",
+      "attempt_number": 4,
+      "score": 0.0,
+      "domain_scores": {
+        "Plan and Manage Azure AI Solutions": 0.0,
+        "Implement Generative AI and Agentic Solutions": 0.0,
+        "Implement Knowledge Mining and Document Intelligence": 0.0,
+        "Apply Responsible AI and Content Safety": 0.0,
+        "Implement Natural Language Processing Solutions": 0.0,
+        "Implement Computer Vision Solutions": 0.0
+      },
+      "weak_areas": [
+        "Plan and Manage Azure AI Solutions",
+        "Implement Generative AI and Agentic Solutions",
+        "Implement Knowledge Mining and Document Intelligence",
+        "Apply Responsible AI and Content Safety",
+        "Implement Natural Language Processing Solutions",
+        "Implement Computer Vision Solutions"
+      ],
+      "completed_at": "2026-06-14T01:19:14.050823Z"
+    }
+  ]
+}

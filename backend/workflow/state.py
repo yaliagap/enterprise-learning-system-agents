@@ -118,6 +118,42 @@ class StudyPlanSession(BaseModel):
     topic_hours: list[float] = Field(default_factory=list)  # actual chunk hours per topic entry
 
 
+class WorkIQSignals(BaseModel):
+    """Work IQ engagement profile signals for a learner."""
+
+    focusPeakStart: str
+    focusPeakEnd: str
+    meetingWindowStart: str
+    meetingWindowEnd: str
+    preferredChannel: str
+    avgStreakDays: int = Field(ge=0)
+    responseRateByChannel: dict[str, float]
+    teamType: str
+
+
+class EngagementAlert(BaseModel):
+    """A single engagement alert in the learner's personalized proposal."""
+
+    type: Literal["reminder", "milestone", "motivation", "risk"]
+    channel: Literal["slack", "email"]
+    timing: str
+    triggerCondition: str
+    previewText: str
+    repeatCount: str
+    reasoning: str
+
+
+class EngagementProposal(BaseModel):
+    """Structured engagement proposal produced by the Engagement Agent."""
+
+    workIQSignals: WorkIQSignals
+    alerts: list[EngagementAlert]
+    totalAlerts: int
+    totalMilestones: int
+    totalWeeks: int
+    activeChannels: int
+
+
 class EngagementStatus(BaseModel):
     """Current engagement tracking state for the learner."""
 
@@ -151,6 +187,7 @@ class AssessmentQuestion(BaseModel):
     bloom_level: BloomLevelLiteral = "Understand"
     is_scenario_based: bool = False
     scenario_context: str | None = None
+    grounding_reference: GroundingReference | None = None
 
 
 class AssessmentQuestionPublic(BaseModel):
@@ -172,6 +209,7 @@ class AssessmentQuestionPublic(BaseModel):
     bloom_level: BloomLevelLiteral = "Understand"
     is_scenario_based: bool = False
     scenario_context: str | None = None
+    grounding_reference: GroundingReference | None = None
 
 
 class QuestionResult(BaseModel):
@@ -208,6 +246,8 @@ class AssessmentResult(BaseModel):
     weak_areas: list[str]
     completed_at: str  # ISO 8601 datetime
     per_question_results: list[QuestionResult] = Field(default_factory=list)
+    domain_scores: dict[str, float] = Field(default_factory=dict)
+    reasoning_distribution: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +321,7 @@ class WorkflowState(BaseModel):
 
     # Populated by the Engagement agent
     engagement: EngagementStatus | None = None
+    engagement_proposal: EngagementProposal | None = None
 
     # Populated by the Assessment agent (one entry per attempt)
     assessment_results: list[AssessmentResult] = Field(default_factory=list)
