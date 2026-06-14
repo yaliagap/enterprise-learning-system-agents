@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+
+kind: hosted
+name: enterprise-learning-agent
+description: |
+    Enterprise AI learning system with assessment, certification guidance, and grounded question generation via AG-UI invocations protocol.
+metadata:
+    tags:
+        - Agent Framework
+        - AI Agent Hosting
+        - Invocations Protocol
+        - AG-UI
+protocols:
+    - protocol: invocations
+      version: 1.0.0
+resources:
+    cpu: "0.5"
+    memory: 1Gi
+environment_variables:
+    - name: FOUNDRY_PROJECT_ENDPOINT
+      value: 'https://foundry-ns-yersy.services.ai.azure.com/api/projects/proj-default-01'
+    - name: FOUNDRY_MODEL
+      value: gpt-4o-mini
+    - name: AZURE_SEARCH_ENDPOINT
+      value: 'https://foundry-iq-ywap.search.windows.net'
+    - name: FOUNDRY_IQ_KB_NAME
+      value: enterprise-learning-kb
+    - name: ALLOWED_ORIGINS
+      value: 'http://localhost:3000'
+    - name: USE_REAL_IQ
+      value: "true"
+    - name: APP_PORT
+      value: "8088"
+code_configuration:
+    runtime: python_3_13
+    entry_point: backend/main.py
+    dependency_resolution: remote_build
