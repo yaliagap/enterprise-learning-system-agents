@@ -424,6 +424,21 @@ def create_learning_path_curator(
 # ---------------------------------------------------------------------------
 
 
+def _parse_run1_reasoning(raw: object) -> str:
+    """Extract the reasoning paragraph from a Run 1 agent JSON output."""
+    try:
+        text = str(raw) if raw else ""
+        text = text.strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            inner = [ln for ln in lines if not ln.startswith("```")]
+            text = "\n".join(inner).strip()
+        data = json.loads(text)
+        return data.get("reasoning", "") or ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _parse_cert_options(raw: object) -> list[CertOption]:
     """Parse the Run 1 agent JSON output into a list of CertOption objects.
 

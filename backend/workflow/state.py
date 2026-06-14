@@ -25,6 +25,8 @@ class LearnerContext(BaseModel):
     learner_id: str
     employee_id: str
     role: str
+    roles: list[str] = Field(default_factory=list)
+    seniority: str = ""
     topics: list[str] = Field(min_length=1, max_length=10)
     experience_level: str | None = None
     goals: list[str] | None = None
@@ -360,6 +362,8 @@ class WorkflowState(BaseModel):
         employee_id: str,
         topics: list[str],
         role: str,
+        roles: list[str] | None = None,
+        seniority: str = "",
         experience_level: str | None = None,
         goals: list[str] | None = None,
     ) -> "WorkflowState":
@@ -370,6 +374,8 @@ class WorkflowState(BaseModel):
                 employee_id=employee_id,
                 topics=topics,
                 role=role,
+                roles=roles or ([role] if role else []),
+                seniority=seniority,
                 experience_level=experience_level,
                 goals=goals,
             )
