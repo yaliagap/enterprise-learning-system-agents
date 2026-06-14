@@ -422,7 +422,7 @@ export default function ExamInterface({ questions, onSubmit }: ExamInterfaceProp
             <p className="text-base font-semibold text-slate-900 leading-relaxed mb-1">
               {currentQuestion.text}
             </p>
-            <p className="text-xs text-slate-400">{currentQuestion.domain} · {currentQuestion.exam_weight_pct}% of exam</p>
+            <p className="text-xs text-slate-400">{currentQuestion.domain} · {(currentQuestion.exam_weight_pct * 100).toFixed(0)}% of exam</p>
 
             <QuestionCard
               question={currentQuestion}

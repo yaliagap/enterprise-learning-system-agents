@@ -7,6 +7,13 @@ export type QuestionType = "multiple_choice" | "multi_select" | "true_false";
 export type Difficulty = "easy" | "medium" | "hard";
 export type BloomLevel = "Remember" | "Understand" | "Apply" | "Analyze" | "Evaluate" | "Create";
 
+export interface GroundingReference {
+  title: string;
+  url: string;
+  type: string;
+  score?: number | null;
+}
+
 /**
  * Public projection of AssessmentQuestion — correct_answers are stripped server-side.
  * explanation is included so we can show it in the results screen.
@@ -24,6 +31,7 @@ export interface AssessmentQuestion {
   bloom_level: BloomLevel;
   is_scenario_based: boolean;
   scenario_context: string | null;
+  grounding_reference: GroundingReference | null;
   // NOTE: correct_answers is intentionally absent — stripped by AssessmentQuestionPublic
 }
 

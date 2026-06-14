@@ -67,6 +67,8 @@ from workflow.state import (
     AssessmentResult,
     CurationResult,
     DomainWeight,
+    EngagementAlert,
+    EngagementProposal,
     EngagementStatus,
     GroundingReference,
     KBActivity,
@@ -76,6 +78,7 @@ from workflow.state import (
     StudyMilestone,
     StudyPlanSession,
     UserAnswer,
+    WorkIQSignals,
     WorkflowState,
 )
 from workflow.topics import EXAM_NAMES, TOPIC_DOMAINS, TOPIC_LABELS
@@ -1169,36 +1172,154 @@ class StudyPlanExecutor(Executor):
 
 
 # ---------------------------------------------------------------------------
+# Engagement tool helpers
+# ---------------------------------------------------------------------------
+
+
+
+def _make_engagement_tool(state: WorkflowState, result_container: dict):
+    """Return an async submit_engagement_proposal closure bound to *state*.
+
+    Mirrors _make_schedule_tool: the closure validates the JSON submitted by the
+    Engagement Agent, writes the validated dict to result_container["proposal"],
+    and returns a short JSON ack so the agent stops naturally.
+
+    On validation failure: returns a rejection JSON (normal tool result — does NOT
+    raise) so the agent receives a natural retry signal and can resubmit.
+    """
+
+    async def submit_engagement_proposal(proposal: dict) -> str:
+        """Submit the structured engagement proposal for validation and storage.
+
+        Args:
+            proposal: Dict matching the EngagementProposal schema with workIQSignals
+                and alerts list.
+
+        Returns:
+            JSON string: {"status": "accepted", "alerts": 4} on success, or
+            {"status": "rejected", "error": "<message>"} on validation failure.
+        """
+        try:
+            logger.info("[engagement] submit_engagement_proposal called")
+            raw = proposal
+            engagement_proposal = EngagementProposal.model_validate(raw)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[engagement] Proposal validation failed: %s", exc)
+            return json.dumps({"status": "rejected", "error": str(exc)})
+
+        alert_types = {a.type for a in engagement_proposal.alerts}
+        required_types = {"reminder", "milestone", "motivation", "risk"}
+        if alert_types != required_types:
+            msg = f"Missing alert types: {required_types - alert_types}"
+            logger.warning("[engagement] %s", msg)
+            return json.dumps({"status": "rejected", "error": msg})
+
+        result_container["proposal"] = raw
+        logger.info("[engagement] Proposal accepted — %d alerts stored", len(engagement_proposal.alerts))
+        return json.dumps({"status": "accepted", "alerts": len(engagement_proposal.alerts)})
+
+    return submit_engagement_proposal
+
+
+# ---------------------------------------------------------------------------
 # Executor: EngagementExecutor
 # ---------------------------------------------------------------------------
 
 
 class EngagementExecutor(Executor):
-    """Runs the EngagementAgent to set up reminders and forwards to HITLGateExecutor."""
+    """Runs the EngagementAgent to produce a structured EngagementProposal.
+
+    Provides the agent with study plan context (sessions, milestones, weeks, study days)
+    so it can apply the decision rules from its system prompt using the Work IQ profile
+    it retrieves via get_engagement_profile. The agent owns all field computation.
+    """
 
     def __init__(self) -> None:
         super().__init__(id="engagement")
-        from agents.engagement import create_engagement_agent  # noqa: PLC0415
-
-        self._agent: Agent = create_engagement_agent(_build_client())
 
     @handler
     async def handle(self, message: LearnerMessage, ctx: WorkflowContext[LearnerMessage]) -> None:
-        state = message.state
-        logger.info("[engagement] Engaging learner=%s", state.learner.learner_id)
+        from agents.engagement import create_engagement_agent  # noqa: PLC0415
 
+        state = message.state
+        employee_id = state.learner.learner_id
+        logger.info("[engagement] Engaging learner=%s", employee_id)
+
+        # ------------------------------------------------------------------
+        # 1. Build study plan context for the agent prompt
+        # ------------------------------------------------------------------
+        total_sessions = len(state.study_plan)
+        total_weeks = max((m.target_week for m in state.study_milestones), default=1)
+        total_milestones = len(state.study_milestones)
+        study_days: list[str] = (
+            state.schedule_context.preferred_study_days
+            if state.schedule_context
+            else ["Monday", "Wednesday", "Friday"]
+        )
+        last_study_day = study_days[-1] if study_days else "Friday"
         cert_ref = state.recommended_cert_id or "your certification"
+
+        milestones_ctx = [
+            {
+                "domain_name": m.domain_name,
+                "target_date": m.target_date,
+                "target_week": m.target_week,
+            }
+            for m in state.study_milestones
+        ]
+
+        study_context = {
+            "total_sessions": total_sessions,
+            "total_weeks": total_weeks,
+            "total_milestones": total_milestones,
+            "study_days": study_days,
+            "last_study_day": last_study_day,
+            "milestones": milestones_ctx,
+        }
+
         prompt = (
-            f"Prepare engagement and readiness check for {state.learner.learner_id} "
-            f"who is studying {cert_ref}."
+            f"Generate the engagement proposal for employee {employee_id} "
+            f"studying {cert_ref}.\n\n"
+            f"STUDY CONTEXT (use for repeatCounts, timing, and totals):\n"
+            f"{json.dumps(study_context, indent=2)}\n\n"
+            f"Call get_engagement_profile('{employee_id}') to get the Work IQ signals, "
+            f"apply the decision rules from your instructions, then call "
+            f"submit_engagement_proposal with the complete JSON."
         )
 
-        with trace_agent_invocation("engagement_agent", state.learner.learner_id):
+        # ------------------------------------------------------------------
+        # 2. Run agent
+        # ------------------------------------------------------------------
+        result_container: dict = {}
+        submit_tool = _make_engagement_tool(state, result_container)
+        agent = create_engagement_agent(_build_client(), submit_tool=submit_tool)
+
+        with trace_agent_invocation("engagement_agent", employee_id):
             try:
-                await self._agent.run(messages=prompt)  # type: ignore[arg-type]
+                await agent.run(messages=prompt)  # type: ignore[arg-type]
             except Exception as exc:
                 logger.warning("[engagement] Agent call failed (%s); continuing", exc)
 
+        # ------------------------------------------------------------------
+        # 3. Store validated proposal (agent owns all field values)
+        # ------------------------------------------------------------------
+        proposal_raw = result_container.get("proposal")
+        if proposal_raw is not None:
+            try:
+                state.engagement_proposal = EngagementProposal.model_validate(proposal_raw)
+                logger.info(
+                    "[engagement] Proposal stored — %d alerts", len(state.engagement_proposal.alerts)
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[engagement] Failed to parse/store proposal: %s; skipping", exc)
+                state.engagement_proposal = None
+        else:
+            logger.warning("[engagement] Agent did not call submit_engagement_proposal; skipping proposal")
+            state.engagement_proposal = None
+
+        # ------------------------------------------------------------------
+        # 6. Backward-compat EngagementStatus write
+        # ------------------------------------------------------------------
         state.engagement = EngagementStatus(
             reminders_sent=0,
             preferred_slot=state.learner.role.lower().replace(" ", "_"),
@@ -1261,20 +1382,25 @@ class HITLGateExecutor(Executor):
 class AssessmentExecutor(Executor):
     """Handles question generation and scoring for the assessment flow.
 
-    handle(HITLConfirmedMessage): generates 15 questions, stores them in ctx
-        with correct answers, emits STATE_SNAPSHOT with public projection
-        (no correct answers), sets status="exam_in_progress", ends run.
+    handle(HITLConfirmedMessage): generates 15 questions via a grounded LLM agent
+        (MS Learn MCP + learner history), stores them in ctx with correct answers,
+        emits STATE_SNAPSHOT with public projection (no correct answers),
+        sets status="exam_in_progress", ends run.
 
     handle_answers(AssessmentAnswersMessage): retrieves stored questions,
-        scores the submitted answers, emits result STATE_SNAPSHOT, and
-        routes to CertificationAdvisorExecutor (pass) or CuratorExecutor (fail).
+        scores the submitted answers, derives domain_scores, persists the attempt,
+        emits result STATE_SNAPSHOT, and routes to CertificationAdvisorExecutor (pass)
+        or CuratorExecutor (fail).
     """
 
     def __init__(self) -> None:
         super().__init__(id="assessment")
-        from agents.assessment import create_assessment_agent  # noqa: PLC0415
+        from agents.curator import create_kb_mcp_tool, create_ms_learn_mcp_tool  # noqa: PLC0415
 
-        self._agent: Agent = create_assessment_agent(_build_client())
+        self._client = _build_client()
+        self._mcp_tool = create_ms_learn_mcp_tool()
+        self._kb_mcp_tool = create_kb_mcp_tool()
+        # Both MCP tools connected lazily inside handle() after connection so .functions is populated.
 
     @handler
     async def handle(
@@ -1282,38 +1408,72 @@ class AssessmentExecutor(Executor):
         message: HITLConfirmedMessage,
         ctx: WorkflowContext,
     ) -> None:
-        """Generate 15 questions via LLM; store with answers in ctx; emit public snapshot."""
+        """Generate 15 questions via grounded LLM agent; store with answers in ctx; emit public snapshot."""
         import datetime  # noqa: PLC0415
 
         state = message.state
         cert_ref = state.recommended_cert_id or "AZ-900"
         cert_display = state.recommended_cert_name or cert_ref
+        learner_id = state.learner.learner_id
 
         logger.info(
             "[assessment] Generating questions for learner=%s cert=%s",
-            state.learner.learner_id,
+            learner_id,
             cert_ref,
         )
 
-        # Build domain_weights from the learning path
-        domain_weights: dict[str, float] = {}
-        for item in state.learning_path:
-            if item.domain_name and item.exam_weight is not None:
-                domain_weights[item.domain_name] = float(item.exam_weight)
-        if not domain_weights:
-            domain_weights = {"General": 1.0}
+        reasoning: str | None = None
+        with trace_agent_invocation("assessment_agent", learner_id):
+            try:
+                from agents.assessment import create_assessment_agent  # noqa: PLC0415
+                from agents.tools.assessment_tools import get_learner_performance  # noqa: PLC0415
 
-        with trace_agent_invocation("assessment_agent", state.learner.learner_id):
-            questions = await generate_assessment_questions(
-                agent=self._agent,
-                cert_id=cert_ref,
-                domain_weights=domain_weights,
-            )
+                kb_mcp = getattr(self, "_kb_mcp_tool", None)
+                ms_mcp = self._mcp_tool
+
+                async with ms_mcp:
+                    ms_functions = list(getattr(ms_mcp, "functions", []) or [])
+                    if kb_mcp is not None:
+                        async with kb_mcp:
+                            kb_functions = list(getattr(kb_mcp, "functions", []) or [])
+                            agent = create_assessment_agent(
+                                self._client,
+                                get_learner_performance,
+                                *kb_functions,
+                                *ms_functions,
+                            )
+                            questions, reasoning = await generate_assessment_questions(
+                                agent=agent,
+                                cert_id=cert_ref,
+                                learner_id=learner_id,
+                            )
+                    else:
+                        agent = create_assessment_agent(
+                            self._client,
+                            get_learner_performance,
+                            *ms_functions,
+                        )
+                        questions, reasoning = await generate_assessment_questions(
+                            agent=agent,
+                            cert_id=cert_ref,
+                            learner_id=learner_id,
+                        )
+            except Exception as exc:
+                logger.warning(
+                    "[assessment] Grounded generation failed (%s); using fallback questions",
+                    exc,
+                )
+                from agents.assessment import _build_fallback_questions  # noqa: PLC0415
+                questions = _build_fallback_questions(cert_ref, {})
+                reasoning = None
+
+        # Stash reasoning_distribution for handle_answers
+        ctx.set_state("assessment_reasoning_distribution", reasoning)
 
         # Store full questions (with correct answers) in MAF context — never sent to frontend
         ctx.set_state("assessment_questions_full", [q.model_dump() for q in questions])
 
-        # Build public projection — strip correct_answers
+        # Build public projection — strip correct_answers; include grounding_reference
         public_questions = [
             AssessmentQuestionPublic(
                 id=q.id,
@@ -1328,6 +1488,7 @@ class AssessmentExecutor(Executor):
                 bloom_level=q.bloom_level,
                 is_scenario_based=q.is_scenario_based,
                 scenario_context=q.scenario_context,
+                grounding_reference=q.grounding_reference,
             )
             for q in questions
         ]
@@ -1396,6 +1557,19 @@ class AssessmentExecutor(Executor):
         passed = overall_score >= PASS_THRESHOLD
         weak_areas = detect_weak_areas(full_questions, per_question_results)
 
+        # Derive per-domain scores from per_question_results grouped by question.domain
+        qid_to_domain: dict[str, str] = {q.id: q.domain for q in full_questions}
+        domain_to_scores: dict[str, list[float]] = {}
+        for r in per_question_results:
+            d = qid_to_domain.get(r.question_id, "General")
+            domain_to_scores.setdefault(d, []).append(r.partial_score)
+        domain_scores: dict[str, float] = {
+            d: round(sum(v) / len(v) * 100, 1)
+            for d, v in domain_to_scores.items()
+        }
+
+        cert_ref = state.recommended_cert_id or "AZ-900"
+
         assessment_result = AssessmentResult(
             attempt=state.retry_count + 1,
             score=overall_score,
@@ -1404,8 +1578,23 @@ class AssessmentExecutor(Executor):
             weak_areas=weak_areas,
             completed_at=datetime.datetime.utcnow().isoformat() + "Z",
             per_question_results=per_question_results,
+            domain_scores=domain_scores,
+            reasoning_distribution=ctx.get_state("assessment_reasoning_distribution"),
         )
         state.assessment_results.append(assessment_result)
+
+        # Persist attempt to learner_performance.json (non-blocking)
+        try:
+            from agents.tools.assessment_tools import save_assessment_attempt  # noqa: PLC0415
+            save_assessment_attempt(
+                state.learner.learner_id,
+                cert_ref,
+                overall_score,
+                domain_scores,
+                weak_areas,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[assessment] Could not persist attempt (%s); continuing", exc)
 
         if passed:
             state.workflow_status = "passed"

@@ -1,8 +1,9 @@
-"""Assessment Agent — question generation via LLM.
+"""Assessment Agent — grounded question generation via LLM with learner history.
 
 generate_assessment_questions() generates exactly 15 questions for a given
-certification, validates against the AssessmentQuestion Pydantic schema, and
-provides one retry with corrective instruction on parse failure.
+certification, adapted to the learner's history, grounded via MS Learn MCP,
+validated against the AssessmentQuestion Pydantic schema, and provides one
+retry with corrective instruction on parse failure.
 """
 from __future__ import annotations
 
@@ -38,62 +39,148 @@ _CERT_DIFFICULTY: dict[str, str] = {
 _DEFAULT_DIFFICULTY = "associate"
 
 # ---------------------------------------------------------------------------
+# Largest-remainder helper (deterministic integer allocation)
+# ---------------------------------------------------------------------------
+
+
+def _largest_remainder(weights: dict[str, float], total: int = 15) -> dict[str, int]:
+    """Allocate *total* integers proportionally to *weights* using the largest-remainder method.
+
+    Guarantees sum(result.values()) == total exactly.
+
+    Args:
+        weights: Mapping of domain_name → weight (float, any positive scale).
+        total: Target integer total (default 15).
+
+    Returns:
+        Mapping of domain_name → integer question count.
+    """
+    if not weights:
+        return {}
+
+    weight_sum = sum(weights.values())
+    if weight_sum <= 0:
+        # Equal distribution fallback
+        per = total // len(weights)
+        remainder = total % len(weights)
+        result = {k: per for k in weights}
+        for i, k in enumerate(weights):
+            if i < remainder:
+                result[k] += 1
+        return result
+
+    # Compute exact quotas and floor values
+    exact: dict[str, float] = {k: v / weight_sum * total for k, v in weights.items()}
+    floored: dict[str, int] = {k: int(v) for k, v in exact.items()}
+    remainders: dict[str, float] = {k: exact[k] - floored[k] for k in exact}
+
+    # Distribute leftover seats to domains with largest remainders
+    leftover = total - sum(floored.values())
+    sorted_keys = sorted(remainders, key=lambda k: remainders[k], reverse=True)
+    result = dict(floored)
+    for i in range(leftover):
+        result[sorted_keys[i % len(sorted_keys)]] += 1
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # System prompt
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = textwrap.dedent("""\
-    You are a Microsoft Azure certification exam question generator.
+    You are an expert in Microsoft Azure certifications and an assessment
+    question generator. Your goal is to generate exactly 15 high-quality,
+    grounded, learner-adapted questions for the given certification.
 
-    When given a certification ID and domain weights, generate exactly 15 questions
-    that mirror the real Azure certification exam format.
-    Use ONLY two question types: multiple_choice and multi_select.
+    === YOUR TOOLS ===
+    - get_learner_performance(learner_id, cert_id): returns the learner's
+      history, including domain_scores and weak_areas from their last attempt.
+    - search_knowledge_base(query): searches the internal knowledge base.
+    - ms_learn_microsoft_docs_search(query): searches official Microsoft Learn docs.
 
-    === DIFFICULTY DISTRIBUTION (strictly enforced) ===
-    - easy: 5 questions (33%)
-    - medium: 7 questions (47%)
-    - hard: 3 questions (20%)
+    === GATHERING CONTEXT ===
+    Before generating questions, gather:
+    1. The learner's performance history (if any) via get_learner_performance.
+    2. The OFFICIAL exam skill area names and weights for this certification.
+       Use search_knowledge_base and/or ms_learn_microsoft_docs_search to find these.
+       CRITICAL: the "domain" field in every question must use these official
+       skill area names VERBATIM — never invent, rename, or use learning path
+       module titles as domain names.
+    3. Grounding references for each skill area: a real URL + title from
+       ms_learn_microsoft_docs_search that supports the question's content.
 
-    === SCENARIO DISTRIBUTION ===
-    - At least 4 of the 15 questions must be scenario-based (is_scenario_based: true).
-    - Scenario questions describe a realistic business or technical situation (Contoso, Fabrikam, etc.)
-      and ask what the learner should do or recommend.
-    - For scenario questions, put the scenario setup in "scenario_context" and the actual question in "text".
-    - For non-scenario questions, leave "scenario_context" as null.
+    If a tool fails, returns an error, or returns empty/unhelpful results:
+    try the other tool, rephrase the query, or fall back to your own trained
+    knowledge of official Microsoft certification skill areas — as long as
+    the names you use are real, accurate skill area names for this exam.
+    Never fabricate a skill area name, and never fabricate a URL: if no
+    real URL is found after reasonable attempts, set grounding_reference to null.
 
-    === BLOOM'S TAXONOMY DISTRIBUTION ===
-    - Remember / Understand: 4 questions (conceptual recall)
-    - Apply / Analyze: 8 questions (practical application and reasoning)
-    - Evaluate / Create: 3 questions (design decisions, architectural choices)
+    === ADAPTIVE DISTRIBUTION (apply only if learner has history) ===
+    Base weight per domain = official exam weight.
+    For domains where domain_score < 0.70:
+      gap = 0.70 - domain_score
+      adjusted_weight = base_weight * (1 + gap / 0.70)
+    Domains at or above 0.70 keep their base weight.
+    Renormalize all adjusted weights to sum to 1.0, then convert to integer
+    question counts summing to 15 (largest-remainder method).
+    First-time learners (no history): use base weights directly.
+
+    Write a "reasoning_distribution" paragraph explaining the resulting
+    counts per domain — cite the learner's scores and any boosts applied,
+    or state "first-time learner, using official base weights".
+
+    === OUTPUT CONSTRAINTS (non-negotiable) ===
+    - Exactly 15 questions total.
+    - Difficulty: easy 5–7, medium 5–7, hard 2–4 (target ~40/40/20%).
+    - Bloom's Taxonomy: Remember/Understand 4, Apply/Analyze 8, Evaluate/Create 3.
+    - At least 4 questions with is_scenario_based: true. Scenario questions
+      put the situation in "scenario_context" and the ask in "text";
+      non-scenario questions set "scenario_context" to null.
+    - question_type is either "multiple_choice" (exactly 1 correct_answer,
+      4 options) or "multi_select" (ALWAYS exactly 2 correct_answers of 4
+      options, and "text" must end with "(Select 2)"). Never make a
+      multi_select where correct_answers count equals total options.
+    - Per-domain question count must match the adjusted distribution (±1).
+
+    === SELF-CHECK BEFORE RETURNING ===
+    Review your 15 questions against the constraints above. If anything is
+    off (wrong total, wrong difficulty/bloom spread, fewer than 4 scenarios,
+    a domain off by more than 1, a malformed multi_select), fix it by
+    regenerating only the affected questions — one corrective pass,
+    then return your output regardless of remaining minor issues
+    (note any unresolved issue briefly in reasoning_distribution).
 
     === OUTPUT FORMAT ===
-    Return ONLY a valid JSON array — no prose, no markdown fences, no extra keys.
-    Each element must be a JSON object with EXACTLY these fields:
+    Return ONLY a valid JSON object, no prose, no markdown fences:
+    {
+      "questions": [
         {
           "id": "<unique string, e.g. q1>",
-          "text": "<the question itself — NOT the scenario>",
+          "text": "<the question itself>",
           "question_type": "<multiple_choice | multi_select>",
-          "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
-          "correct_answers": ["<correct option text>"],
-          "domain": "<domain name>",
-          "exam_weight_pct": <float between 0 and 1>,
-          "explanation": "<2-4 sentence explanation of why the correct answer is right>",
+          "options": ["<A>", "<B>", "<C>", "<D>"],
+          "correct_answers": ["<correct option text — 1 for multiple_choice, 2 for multi_select>"],
+          "domain": "<official skill area name>",
+          "exam_weight_pct": <float 0–1, e.g. 0.20 for a 20% weight domain>,
+          "explanation": "<2-4 sentence explanation>",
           "difficulty": "<easy | medium | hard>",
           "bloom_level": "<Remember | Understand | Apply | Analyze | Evaluate | Create>",
           "is_scenario_based": <true | false>,
-          "scenario_context": "<scenario setup paragraph, or null if not scenario-based>"
+          "scenario_context": "<scenario paragraph or null>",
+          "grounding_reference": {
+            "title": "<exact title from tool result>",
+            "url": "<exact url from tool result, copied verbatim>",
+            "type": "web"
+          }
         }
+      ],
+      "reasoning_distribution": "<paragraph explaining domain allocation>"
+    }
 
-    === QUESTION TYPE RULES ===
-    - "multiple_choice": exactly 1 correct_answers entry, exactly 4 options.
-    - "multi_select": ALWAYS exactly 2 correct_answers entries, always 4 options (never 3, never 5, never 6).
-    - For multi_select questions, the "text" MUST end with "(Select 2)".
-    - NEVER generate a multi_select where the number of correct_answers equals the total number of options — that is trivially correct and forbidden.
-
-    === COVERAGE RULES ===
-    - Distribute questions proportionally across domains according to their weights.
-    - Mix conceptual, applied, and scenario reasoning questions.
-    - Never return fewer or more than 15 questions.
-    - Difficulty distribution must match exactly: 5 easy, 7 medium, 3 hard.
+    Set grounding_reference to null if no real URL was found via tools.
+    Never return fewer or more than 15 questions.
 """)
 
 # ---------------------------------------------------------------------------
@@ -101,11 +188,53 @@ _SYSTEM_PROMPT = textwrap.dedent("""\
 # ---------------------------------------------------------------------------
 
 _CORRECTIVE_PROMPT = textwrap.dedent("""\
-    Your previous response could not be parsed as a valid JSON array of assessment questions.
+    Your previous response could not be parsed as a valid JSON object with a "questions" array.
 
-    Please re-generate exactly 15 questions in STRICT JSON format — a bare JSON array
-    starting with [ and ending with ].  No markdown, no explanations outside the JSON.
+    Please re-generate exactly 15 questions in STRICT JSON format:
+    {
+      "questions": [...15 question objects...],
+      "reasoning_distribution": "<string>"
+    }
+
+    No markdown, no explanations outside the JSON.
+    Alternatively, a bare JSON array starting with [ and ending with ] is also accepted.
 """)
+
+# ---------------------------------------------------------------------------
+# Structural Critic check (Python post-parse)
+# ---------------------------------------------------------------------------
+
+
+def _check_batch(questions: list[AssessmentQuestion]) -> list[str]:
+    """Run structural checks on a parsed batch. Returns list of issue descriptions."""
+    issues: list[str] = []
+
+    if len(questions) != 15:
+        issues.append(f"Expected 15 questions, got {len(questions)}")
+
+    scenario_count = sum(1 for q in questions if q.is_scenario_based)
+    if scenario_count < 4:
+        issues.append(f"Only {scenario_count} scenario-based questions (minimum 4 required)")
+
+    easy = sum(1 for q in questions if q.difficulty == "easy")
+    medium = sum(1 for q in questions if q.difficulty == "medium")
+    hard = sum(1 for q in questions if q.difficulty == "hard")
+    if not (5 <= easy <= 7):
+        issues.append(f"Easy count {easy} outside range 5-7")
+    if not (5 <= medium <= 7):
+        issues.append(f"Medium count {medium} outside range 5-7")
+    if not (2 <= hard <= 4):
+        issues.append(f"Hard count {hard} outside range 2-4")
+
+    for q in questions:
+        if q.question_type == "multi_select":
+            if len(q.correct_answers) != 2:
+                issues.append(f"multi_select question {q.id} has {len(q.correct_answers)} correct answers (expected 2)")
+            if not q.text.endswith("(Select 2)"):
+                issues.append(f"multi_select question {q.id} text does not end with '(Select 2)'")
+
+    return issues
+
 
 # ---------------------------------------------------------------------------
 # Fallback generator (demo safety net — only used when both LLM attempts fail)
@@ -140,20 +269,25 @@ def _build_fallback_questions(cert_id: str, domain_weights: dict[str, float]) ->
                 bloom_level="Understand",
                 is_scenario_based=False,
                 scenario_context=None,
+                grounding_reference=None,
             )
         )
     return questions
 
 
 # ---------------------------------------------------------------------------
-# Parser
+# Parser — handles both bare array and envelope formats
 # ---------------------------------------------------------------------------
 
 _question_list_adapter: TypeAdapter[list[AssessmentQuestion]] = TypeAdapter(list[AssessmentQuestion])
 
 
-def _parse_questions(raw: str) -> list[AssessmentQuestion]:
+def _parse_questions(raw: str) -> tuple[list[AssessmentQuestion], str | None]:
     """Parse raw LLM output into a validated list of AssessmentQuestion.
+
+    Accepts both:
+    - Bare JSON array: [...] → returns (questions, None)
+    - Envelope: {"questions": [...], "reasoning_distribution": "..."} → returns (questions, reasoning)
 
     Strips markdown fences if present before parsing.
 
@@ -170,6 +304,19 @@ def _parse_questions(raw: str) -> list[AssessmentQuestion]:
     except json.JSONDecodeError as exc:
         raise ValueError(f"JSON decode failed: {exc}") from exc
 
+    reasoning_distribution: str | None = None
+
+    # Handle envelope format
+    if isinstance(data, dict):
+        reasoning_distribution = data.get("reasoning_distribution")
+        raw_questions = data.get("questions")
+        if not isinstance(raw_questions, list):
+            raise ValueError("Envelope JSON missing 'questions' array")
+        data = raw_questions
+
+    if not isinstance(data, list):
+        raise ValueError(f"Expected JSON array or envelope, got {type(data).__name__}")
+
     try:
         questions = _question_list_adapter.validate_python(data)
     except (ValidationError, TypeError) as exc:
@@ -178,7 +325,7 @@ def _parse_questions(raw: str) -> list[AssessmentQuestion]:
     if len(questions) != 15:
         raise ValueError(f"Expected 15 questions, got {len(questions)}")
 
-    return questions
+    return questions, reasoning_distribution
 
 
 # ---------------------------------------------------------------------------
@@ -189,37 +336,46 @@ def _parse_questions(raw: str) -> list[AssessmentQuestion]:
 async def generate_assessment_questions(
     agent: Agent,
     cert_id: str,
-    domain_weights: dict[str, float],
-) -> list[AssessmentQuestion]:
+    learner_id: str = "UNKNOWN",
+) -> tuple[list[AssessmentQuestion], str | None]:
     """Generate 15 assessment questions via LLM with one retry on parse failure.
 
     Args:
-        agent: A configured MAF Agent with LLM client.
+        agent: A configured MAF Agent with LLM client and tools.
         cert_id: The certification identifier (e.g. "AZ-900").
-        domain_weights: Mapping of domain_name → exam_weight (float 0–1).
+        learner_id: The learner's ID for history lookup (default "UNKNOWN").
 
     Returns:
-        A list of exactly 15 AssessmentQuestion objects.
-
-    Raises:
-        ValueError: If both the initial attempt and the retry fail to produce valid JSON.
+        Tuple of (list[AssessmentQuestion], reasoning_distribution | None).
+        Always returns exactly 15 questions (fallback if both LLM attempts fail).
     """
     difficulty = _CERT_DIFFICULTY.get(cert_id, _DEFAULT_DIFFICULTY)
-    domain_summary = ", ".join(
-        f"{d} ({w:.0%})" for d, w in sorted(domain_weights.items(), key=lambda x: -x[1])
-    )
 
     user_message = (
-        f"Certification: {cert_id}\n"
-        f"Difficulty level: {difficulty}\n"
-        f"Domain weights: {domain_summary}\n\n"
-        "Generate exactly 15 questions. Return ONLY the JSON array."
+        f"LEARNER_ID: {learner_id}\n"
+        f"CERT_ID: {cert_id}\n"
+        f"Difficulty level: {difficulty}\n\n"
+        "Follow the 5-step instructions in your system prompt. "
+        "Start by calling get_learner_performance, then call search_knowledge_base to get "
+        "the official exam skill areas for this cert — those names are the only valid domain values. "
+        "Generate exactly 15 questions. Return ONLY the JSON envelope as instructed."
     )
 
     # Attempt 1
     try:
         raw_1 = await agent.run(messages=user_message)  # type: ignore[arg-type]
-        return _parse_questions(str(raw_1) if raw_1 else "")
+        questions, reasoning = _parse_questions(str(raw_1) if raw_1 else "")
+
+        # Run structural critic check
+        issues = _check_batch(questions)
+        if issues:
+            logger.warning(
+                "[assessment] Structural issues in generated batch for cert=%s: %s",
+                cert_id,
+                issues,
+            )
+            # Soft gate — submit anyway after logging
+        return questions, reasoning
     except (ValueError, Exception) as exc_1:
         logger.warning(
             "[assessment] First parse attempt failed for cert=%s: %s — retrying",
@@ -230,34 +386,47 @@ async def generate_assessment_questions(
     # Attempt 2 — corrective prompt
     try:
         raw_2 = await agent.run(messages=_CORRECTIVE_PROMPT)  # type: ignore[arg-type]
-        return _parse_questions(str(raw_2) if raw_2 else "")
+        questions, reasoning = _parse_questions(str(raw_2) if raw_2 else "")
+        return questions, reasoning
     except (ValueError, Exception) as exc_2:
         logger.error(
             "[assessment] Second parse attempt also failed for cert=%s: %s — using fallback questions",
             cert_id,
             exc_2,
         )
-        return _build_fallback_questions(cert_id, domain_weights)
+        return _build_fallback_questions(cert_id, {}), None
 
 
 # ---------------------------------------------------------------------------
-# Legacy factory (kept for backward compatibility with dispatcher)
+# Factory
 # ---------------------------------------------------------------------------
 
 
-def create_assessment_agent(client: object) -> Agent:
-    """Return a configured AssessmentAgent for question generation.
+def create_assessment_agent(
+    client: object,
+    learner_perf_tool: object = None,
+    *mcp_functions: object,
+) -> Agent:
+    """Return a configured AssessmentAgent for grounded question generation.
 
     Args:
         client: An initialised MAF-compatible chat client.
+        learner_perf_tool: get_learner_performance @tool (defaults to module-level import).
+        *mcp_functions: MCP tool functions from connected MCPStreamableHTTPTool instances
+                        (KB and/or MS Learn). Passed in directly — no HTTP fallback.
 
     Returns:
-        A plain Agent with the question-generation system prompt and no tools.
-        Question generation is done via generate_assessment_questions(), not agent.run() alone.
+        An Agent configured with the grounded system prompt and all provided tools.
     """
+    from agents.tools.assessment_tools import get_learner_performance  # noqa: PLC0415
+
+    perf_tool = learner_perf_tool if learner_perf_tool is not None else get_learner_performance
+
+    tools = [perf_tool, *mcp_functions]
+
     return Agent(
         client=client,
         name="AssessmentAgent",
         instructions=_SYSTEM_PROMPT,
-        tools=[],
+        tools=tools,
     )

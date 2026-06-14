@@ -1,7 +1,11 @@
-"""MAF @tool functions for assessment: question generation, answer evaluation, and readiness scoring."""
+"""MAF @tool functions for assessment: question generation, answer evaluation, readiness scoring,
+and learner performance history (grounded assessment support)."""
 from __future__ import annotations
 
+import datetime
 import hashlib
+import json
+from pathlib import Path
 from typing import Annotated, Literal
 
 from agent_framework import tool
@@ -9,6 +13,13 @@ from pydantic import BaseModel, Field, computed_field
 
 from grounding.factory import IQProviderFactory
 from workflow.state import QuestionResponse
+
+# ---------------------------------------------------------------------------
+# Learner performance fixture path
+# ---------------------------------------------------------------------------
+
+_FIXTURES_DIR = Path(__file__).parent.parent.parent / "data" / "fixtures"
+_PERF_FILE = _FIXTURES_DIR / "learner_performance.json"
 
 
 # ---------------------------------------------------------------------------
@@ -261,3 +272,110 @@ def calculate_readiness_score(
         skill_breakdown=skill_breakdown,
         weak_areas=weak_areas,
     )
+
+
+# ---------------------------------------------------------------------------
+# Learner performance history helpers
+# ---------------------------------------------------------------------------
+
+
+def _load_perf() -> dict:
+    """Load the learner_performance.json fixture. Returns empty structure if missing."""
+    if not _PERF_FILE.exists():
+        return {"_metadata": {"synthetic": True}, "records": []}
+    with _PERF_FILE.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _attempts_for(data: dict, learner_id: str, cert_id: str) -> list[dict]:
+    """Return all attempt records for a given learner+cert pair."""
+    return [
+        r
+        for r in data.get("records", [])
+        if r.get("learner_id") == learner_id and r.get("cert_id") == cert_id
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Grounded assessment tool (READ-ONLY, agent-callable)
+# ---------------------------------------------------------------------------
+
+
+@tool
+def get_learner_performance(
+    learner_id: Annotated[str, Field(description="Learner ID, e.g. EMP-001")],
+    cert_id: Annotated[str, Field(description="Certification ID, e.g. AZ-104")],
+) -> dict:
+    """Return prior attempt history for a learner+cert pair.
+
+    Returns has_history=False for first-time learners or when the fixture is absent.
+    """
+    try:
+        attempts = _attempts_for(_load_perf(), learner_id, cert_id)
+    except Exception:  # noqa: BLE001
+        attempts = []
+
+    if not attempts:
+        return {"has_history": False, "attempt_count": 0, "last_attempt": None}
+
+    last = max(attempts, key=lambda r: r.get("attempt_number", 0))
+    return {
+        "has_history": True,
+        "attempt_count": len(attempts),
+        "last_attempt": {
+            "domain_scores": last.get("domain_scores", {}),
+            "weak_areas": last.get("weak_areas", []),
+            "overall_score": last.get("score", 0),
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Executor-only persistence function (NOT an agent tool)
+# ---------------------------------------------------------------------------
+
+
+def save_assessment_attempt(
+    learner_id: str,
+    cert_id: str,
+    score: float,
+    domain_scores: dict[str, float],
+    weak_areas: list[str],
+) -> dict:
+    """Append a new attempt record to learner_performance.json.
+
+    Executor-only — NOT decorated with @tool so agents cannot call it.
+    Single-user demo assumption: no file locking (last-write-wins).
+
+    Returns:
+        {"status": "saved", "attempt_number": <int>}
+    """
+    data = _load_perf()
+    records: list[dict] = data.setdefault("records", [])
+
+    n = (
+        sum(
+            1
+            for r in records
+            if r.get("learner_id") == learner_id and r.get("cert_id") == cert_id
+        )
+        + 1
+    )
+
+    records.append(
+        {
+            "learner_id": learner_id,
+            "cert_id": cert_id,
+            "attempt_number": n,
+            "score": round(float(score), 2),
+            "domain_scores": domain_scores,
+            "weak_areas": weak_areas,
+            "completed_at": datetime.datetime.utcnow().isoformat() + "Z",
+        }
+    )
+
+    _FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
+    with _PERF_FILE.open("w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=2)
+
+    return {"status": "saved", "attempt_number": n}
