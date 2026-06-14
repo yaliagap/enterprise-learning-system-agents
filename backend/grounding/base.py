@@ -136,3 +136,12 @@ class WorkIQProvider(ABC):
         Implementations MUST never raise for unknown IDs; return a safe
         default (2 h/day) instead so the study-plan step is never blocked.
         """
+
+    @abstractmethod
+    def engagement_profile(self, employee_id: str) -> "object":
+        """Return the engagement profile (EngagementProfile) for *employee_id*.
+
+        Raises KeyError if the employee is not found in the fixture data.
+        Unlike availability(), this method MUST raise for unknown IDs so the
+        Engagement Agent can surface the assumption explicitly in reasoning.
+        """

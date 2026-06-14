@@ -25,7 +25,15 @@
       "after_hours_activity_pct": 15,
       "notes": "Moderate meeting load; solid evening study windows available consistently",
       "preferred_study_days": ["Monday", "Tuesday", "Wednesday", "Thursday"],
-      "session_duration_hours": 2.0
+      "session_duration_hours": 2.0,
+      "focusPeakStart": "19:00",
+      "focusPeakEnd": "21:00",
+      "meetingWindowStart": "10:00",
+      "meetingWindowEnd": "16:00",
+      "preferredChannel": "slack",
+      "avgStreakDays": 12,
+      "responseRateByChannel": {"slack": 0.82, "email": 0.45},
+      "teamType": "distributed"
     },
     {
       "learner_id": "EMP-002",
@@ -45,7 +53,15 @@
       "after_hours_activity_pct": 25,
       "notes": "Meeting-heavy senior engineer; only consistent focus window is early morning 06:00-08:00. Study plan must respect 1.5h/day cap to avoid burnout. Highly motivated for DP-203 retry.",
       "preferred_study_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      "session_duration_hours": 1.5
+      "session_duration_hours": 1.5,
+      "focusPeakStart": "06:00",
+      "focusPeakEnd": "08:00",
+      "meetingWindowStart": "09:00",
+      "meetingWindowEnd": "18:00",
+      "preferredChannel": "email",
+      "avgStreakDays": 27,
+      "responseRateByChannel": {"slack": 0.61, "email": 0.79},
+      "teamType": "distributed"
     },
     {
       "learner_id": "EMP-003",
@@ -67,7 +83,15 @@
       "after_hours_activity_pct": 10,
       "notes": "Junior with very open calendar; has capacity but needs structure and shorter study sessions to build habit. Large afternoon blocks available but attention span limits effective study to 90-minute chunks.",
       "preferred_study_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      "session_duration_hours": 1.5
+      "session_duration_hours": 1.5,
+      "focusPeakStart": "14:00",
+      "focusPeakEnd": "17:00",
+      "meetingWindowStart": "09:00",
+      "meetingWindowEnd": "11:00",
+      "preferredChannel": "slack",
+      "avgStreakDays": 3,
+      "responseRateByChannel": {"slack": 0.90, "email": 0.40},
+      "teamType": "colocated"
     },
     {
       "learner_id": "EMP-004",
@@ -88,7 +112,15 @@
       "after_hours_activity_pct": 8,
       "notes": "Senior architect with stable early-morning routine; consistent 2h/day available before meetings load. Study plan should target practice tests and scenario-based reviews aligned with AZ-305 exam domains.",
       "preferred_study_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      "session_duration_hours": 2.0
+      "session_duration_hours": 2.0,
+      "focusPeakStart": "07:00",
+      "focusPeakEnd": "09:00",
+      "meetingWindowStart": "10:00",
+      "meetingWindowEnd": "17:00",
+      "preferredChannel": "slack",
+      "avgStreakDays": 45,
+      "responseRateByChannel": {"slack": 0.75, "email": 0.68},
+      "teamType": "colocated"
     },
     {
       "learner_id": "EMP-005",
@@ -109,7 +141,15 @@
       "after_hours_activity_pct": 35,
       "notes": "On-call rotation creates evening variability; on-call weeks reduce available study time to 1h/day. Study plan should note on-call schedule gaps and use lighter review content during on-call periods.",
       "preferred_study_days": ["Monday", "Wednesday", "Friday"],
-      "session_duration_hours": 2.0
+      "session_duration_hours": 2.0,
+      "focusPeakStart": "19:00",
+      "focusPeakEnd": "21:30",
+      "meetingWindowStart": "09:00",
+      "meetingWindowEnd": "12:00",
+      "preferredChannel": "slack",
+      "avgStreakDays": 8,
+      "responseRateByChannel": {"slack": 0.88, "email": 0.52},
+      "teamType": "distributed"
     }
   ]
 }

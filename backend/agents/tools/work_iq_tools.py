@@ -16,6 +16,20 @@ from workflow.state import LearnerSchedulePreferences
 # ---------------------------------------------------------------------------
 
 
+class EngagementProfile(BaseModel):
+    """Work IQ engagement profile for a single employee."""
+
+    employee_id: str
+    focusPeakStart: str
+    focusPeakEnd: str
+    meetingWindowStart: str
+    meetingWindowEnd: str
+    preferredChannel: str
+    avgStreakDays: int
+    responseRateByChannel: dict[str, float]
+    teamType: str
+
+
 class GetPreferredLearningSlotResult(BaseModel):
     """The preferred time-of-day slot for a given employee's study sessions."""
 
@@ -36,6 +50,17 @@ class GetTeamCalendarSummaryResult(BaseModel):
 # ---------------------------------------------------------------------------
 # Tool implementations
 # ---------------------------------------------------------------------------
+
+
+@tool
+def get_engagement_profile(
+    employee_id: Annotated[str, Field(description="Employee identifier, e.g. 'EMP-001'.")],
+) -> EngagementProfile:
+    """Return the Work IQ engagement profile for an employee: focus peak hours, meeting window,
+    preferred communication channel, average streak days, and response rates by channel.
+    Use this to personalize reminder timing, channel selection, and risk thresholds."""
+    work = IQProviderFactory().work()
+    return work.engagement_profile(employee_id)
 
 
 @tool
