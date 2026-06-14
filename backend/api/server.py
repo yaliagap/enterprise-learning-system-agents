@@ -81,6 +81,12 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "version": "1.0.0"}
 
 
+@app.get("/readiness", tags=["health"])
+async def readiness() -> dict[str, str]:
+    """Readiness probe for Foundry Hosted Agent. Returns 200 when app is ready."""
+    return {"status": "ready"}
+
+
 # ---------------------------------------------------------------------------
 # AG-UI SSE endpoints (wired at startup)
 # ---------------------------------------------------------------------------
@@ -153,6 +159,19 @@ def _setup_agui_endpoints() -> None:
         tags=["learner"],
     )
     logger.info("AG-UI endpoint registered: POST /api/learn")
+
+    # Foundry Hosted Agent — Invocations protocol entry point.
+    # Foundry routes external requests to /invocations in the container;
+    # we register the same handler here so the AG-UI frontend works unchanged
+    # whether it connects to localhost or the Foundry endpoint.
+    add_agent_framework_fastapi_endpoint(
+        app=app,
+        agent=learner_agui,
+        path="/invocations",
+        state_schema=WorkflowState,
+        tags=["hosted-agent"],
+    )
+    logger.info("AG-UI endpoint registered: POST /invocations (Foundry Invocations protocol)")
 
     # --- Manager insights ---
     manager_workflow = build_manager_workflow()
