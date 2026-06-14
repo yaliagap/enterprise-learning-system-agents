@@ -1051,22 +1051,6 @@ export default function LearnerPage() {
     if (assessmentResult || examQuestions.length > 0) setActiveAgentTab("assessment");
   }, [!!assessmentResult, examQuestions.length > 0]);
 
-  useEffect(() => {
-    if (certOptions.length > 0 && savedCertOptions.length === 0) {
-      setSavedCertOptions(certOptions);
-    }
-  }, [certOptions.length]);
-
-  useEffect(() => {
-    if (learningPath.length > 0 && Object.keys(moduleChecks).length === 0) {
-      const initial = learningPath.reduce((acc, item) => ({
-        ...acc,
-        [item.resource_id]: item.necessary_learn !== false,
-      }), {} as Record<string, boolean>);
-      setModuleChecks(initial);
-    }
-  }, [learningPath.length]);
-
   const recommendedCertId = workflowState.recommended_cert_id as string | null | undefined;
   const recommendedCertName = workflowState.recommended_cert_name as string | null | undefined;
   const certDisplay = recommendedCertName ?? recommendedCertId ?? null;
@@ -1083,6 +1067,23 @@ export default function LearnerPage() {
     .map((id) => AZURE_TOPICS.find((t) => t.id === id)?.label ?? id);
 
   const certOptions = (workflowState.cert_options as CertOption[] | undefined) ?? [];
+
+  useEffect(() => {
+    if (certOptions.length > 0 && savedCertOptions.length === 0) {
+      setSavedCertOptions(certOptions);
+    }
+  }, [certOptions.length]);
+
+  useEffect(() => {
+    if (learningPath.length > 0 && Object.keys(moduleChecks).length === 0) {
+      const initial = learningPath.reduce((acc, item) => ({
+        ...acc,
+        [item.resource_id]: item.necessary_learn !== false,
+      }), {} as Record<string, boolean>);
+      setModuleChecks(initial);
+    }
+  }, [learningPath.length]);
+
   const studyPlanReasoning = (workflowState as any).study_plan_reasoning as string | undefined;
   const curatorReasoning = (workflowState.curator_response as { reasoning?: string } | null)?.reasoning ?? "";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
