@@ -225,6 +225,16 @@ Azure certification using real data from the Microsoft Learn Catalog API.
 
 ## Tools available
 
+**get_learner_profile(learner_id: str)**
+Returns the full learner profile with these fields:
+- roles: list[str]            — job roles (e.g. ["AI Engineer"])
+- seniority: str              — "junior", "mid", or "senior"
+- current_skills: list[str]   — skills the learner already has (e.g. ["python", "machine-learning"])
+- strongest_domains: list[str] — domains where the learner has strong proficiency (e.g. ["Azure Cognitive Services", "Machine Learning Fundamentals"])
+- completed_certs: list[str]  — cert IDs already obtained
+- goals: list[str]            — the learner's stated learning objectives
+Call this FIRST — before any catalog tools. Use the learner's strongest_domains and current_skills to decide necessary_learn for each module.
+
 **search_learning_paths(exam_id: str)**
 Returns all official self-paced learning paths for a certification exam.
 exam_id examples: "AZ-104", "AZ-900", "AI-102", "DP-203", "AZ-305", "SC-900".
@@ -247,6 +257,11 @@ Searches MS Learn docs for additional context, prerequisite info, or coverage ga
 Use only AFTER completing the catalog data collection above.
 
 ## Reasoning process (follow these steps exactly)
+
+Step 0 — Fetch the learner profile.
+The prompt includes a "Learner ID". Call get_learner_profile(learner_id) immediately.
+Read the result carefully: note their roles, seniority, current_skills, strongest_domains, and completed_certs.
+This profile guides your necessary_learn decisions in Step 4.
 
 Step 1 — Determine your LP UIDs.
 Read the prompt. It will contain either:
@@ -294,6 +309,30 @@ Step 6 — Critic pass before outputting.
 - Does the sum of exam_weight in priority_domains equal ~1.0? Redistribute if needed.
 - Are there any educator/instructor paths? (path contains "prepare-teach", "educator") Remove them.
 
+LEARNER DOMAIN PROFICIENCY — MANDATORY FILTERING:
+You already called get_learner_profile in Step 0. Use strongest_domains and current_skills to filter modules.
+
+RULE: Set `necessary_learn: false` for any module whose title or domain semantically matches an entry in the learner's strongest_domains or current_skills — including partial and thematic matches.
+
+MATCHING EXAMPLES (apply the same logic broadly):
+- "azure-cognitive-services" in current_skills → NLP, Speech, Vision, Language Understanding, Text Analysis, Information Extraction modules → false
+- "Machine Learning Fundamentals" in strongest_domains → "Introduction to AI", "Fundamentals of machine learning", "AI concepts" modules → false
+- "CI/CD Pipelines" in strongest_domains → pipeline, build automation, continuous integration modules → false
+- "Kubernetes" in strongest_domains → container orchestration, AKS modules → false
+- "Python Development" in strongest_domains → Python scripting, SDK usage modules → false
+
+MANDATORY RULES:
+1. Certification level (fundamentals/associate/expert) does NOT override this filter. A learner who already knows a topic skips its introductory content even in a fundamentals exam.
+2. If the learner has ANY relevant strongest_domains or current_skills that overlap with the module list, you MUST mark at least one module as `necessary_learn: false`.
+3. When a module topic matches a skill — even partially or thematically — default to `necessary_learn: false`.
+4. Only set `necessary_learn: true` for modules covering topics genuinely absent from the learner's profile.
+5. CRITICAL: Include ALL modules in recommended_learning_paths regardless of necessary_learn value. Do NOT omit modules marked false — the UI needs every module with its flag to render the full learning path. Omitting a module is wrong; flagging it false is correct.
+
+In `path_efficiency_reasoning`, write 2-4 sentences explaining:
+- Which strongest_domains / current_skills matched which modules
+- Which specific modules were marked false and why
+- What the learner should still prioritize (the true gaps)
+
 Step 7 — Output STRICT JSON (no prose, no markdown fences):
 
 {
@@ -317,11 +356,13 @@ Step 7 — Output STRICT JSON (no prose, no markdown fences):
       "source_url": "<module url from tool — must start with https://learn.microsoft.com>",
       "domain_name": "<parent LP domain name>",
       "exam_weight": <float — same as parent domain's exam_weight>,
-      "citations": []
+      "citations": [],
+      "necessary_learn": true
     }
   ],
   "coverage_summary": "<one sentence: total hours, number of modules, domains covered>",
-  "references": []
+  "references": [],
+  "path_efficiency_reasoning": "<2-4 sentences about domain proficiency and necessary_learn decisions>"
 }
 
 Rules:
@@ -372,6 +413,7 @@ def create_curator_run2(client: object, mcp_tool: MCPStreamableHTTPTool) -> Agen
         name="LearningPathCuratorRun2",
         instructions=_SYSTEM_PROMPT_RUN2,
         tools=[
+            get_learner_profile,
             search_learning_paths,
             get_learning_path,
             get_module_details,

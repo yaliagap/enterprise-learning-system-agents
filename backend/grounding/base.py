@@ -38,6 +38,7 @@ class LearnerProfile(BaseModel):
     # Enriched fields — populated from learner_profiles.json
     roles: list[str] = Field(default_factory=list)
     current_skills: list[str] = Field(default_factory=list)
+    strongest_domains: list[str] = Field(default_factory=list)
     completed_certs: list[str] = Field(default_factory=list)
     goals: list[str] = Field(default_factory=list)
 

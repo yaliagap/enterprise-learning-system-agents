@@ -39,6 +39,7 @@ export interface LearnerProfile {
   readiness_score: number;
   progress: number;
   current_skills: string[];
+  strongest_domains?: string[];
   certifications: CertificationCatalogItem[];
 }
 
@@ -58,6 +59,7 @@ const LEARNERS: LearnerProfile[] = [
     readiness_score: 58,
     progress: 42,
     current_skills: ["python", "ci-cd", "azure-pipelines", "docker", "linux"],
+    strongest_domains: ["CI/CD Pipelines", "Infrastructure as Code", "Container Technologies", "Azure DevOps"],
     certifications: [
       {
         cert_id: "AZ-900",
@@ -111,6 +113,7 @@ const LEARNERS: LearnerProfile[] = [
     readiness_score: 71,
     progress: 68,
     current_skills: ["sql", "pyspark", "azure-synapse", "data-factory", "python"],
+    strongest_domains: ["Azure Synapse Analytics", "Data Integration", "Batch Data Processing", "Python Data Engineering"],
     certifications: [
       {
         cert_id: "AZ-900",
@@ -169,6 +172,7 @@ const LEARNERS: LearnerProfile[] = [
     readiness_score: 34,
     progress: 18,
     current_skills: ["python", "machine-learning", "azure-cognitive-services"],
+    strongest_domains: ["Azure Cognitive Services", "Machine Learning Fundamentals", "Python Development"],
     certifications: [
       {
         cert_id: "AI-900",
@@ -216,6 +220,7 @@ const LEARNERS: LearnerProfile[] = [
     readiness_score: 82,
     progress: 75,
     current_skills: ["azure-architecture", "networking", "security", "cost-management", "high-availability"],
+    strongest_domains: ["Azure Networking", "Azure Security", "High Availability and Disaster Recovery", "Azure Resource Management"],
     certifications: [
       {
         cert_id: "AZ-900",
@@ -277,6 +282,7 @@ const LEARNERS: LearnerProfile[] = [
     readiness_score: 50,
     progress: 35,
     current_skills: ["github-actions", "terraform", "kubernetes", "azure-devops", "monitoring"],
+    strongest_domains: ["Continuous Integration", "Continuous Delivery", "Kubernetes", "Infrastructure Monitoring", "Terraform"],
     certifications: [
       {
         cert_id: "AZ-900",

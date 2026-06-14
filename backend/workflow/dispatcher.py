@@ -1086,10 +1086,12 @@ class CuratorExecutor(Executor):
             else "LP UIDs: []\n"
         )
         prompt = (
+            f"Learner ID: {state.learner.learner_id}\n"
             f"Cert code: {selected_cert_id}\n"
             f"Cert name: {cert_name}\n"
             f"{lp_uids_line}"
-            "Build the full learning path for this certification. "
+            "Step 0: Call get_learner_profile with the Learner ID above before doing anything else. "
+            "Use the profile to inform necessary_learn decisions. "
             "If LP UIDs are provided above, use them directly with get_learning_path — "
             "do NOT call search_learning_paths. "
             "If LP UIDs is empty, call search_learning_paths(exam_id) to discover them. "
@@ -1120,6 +1122,7 @@ class CuratorExecutor(Executor):
             if curation.priority_domains
             else _reconstruct_priority_domains(state.learning_path)
         )
+        state.path_efficiency_reasoning = curation.path_efficiency_reasoning
 
         # Clear cert selection fields now that Run 2 is complete
         state.cert_options = []

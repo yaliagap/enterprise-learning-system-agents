@@ -46,6 +46,8 @@ interface LearnerContext {
   roles?: string[];
   seniority?: string;
   experience_level?: string;
+  current_skills?: string[];
+  strongest_domains?: string[];
 }
 
 interface LearningPathItem {
@@ -57,6 +59,7 @@ interface LearningPathItem {
   domain_name: string | null;
   exam_weight: number | null;
   citations?: string[];
+  necessary_learn?: boolean;
 }
 
 interface StudyPlanSession {
@@ -440,32 +443,6 @@ function CertOptionsPanel({ options, onSelect }: { options: CertOption[]; onSele
 
   return (
     <section>
-      {/* Agent workflow tabs */}
-      <div className="flex gap-0 border-b border-slate-200 mb-5 overflow-x-auto">
-        {AGENT_WORKFLOW_STEPS.map((step, idx) => (
-          <div
-            key={step.key}
-            className={`flex shrink-0 items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors select-none ${
-              idx === 0
-                ? "border-amber-500 text-amber-700"
-                : "border-transparent text-slate-400 cursor-not-allowed"
-            }`}
-          >
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-              idx === 0 ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"
-            }`}>
-              {step.step}
-            </span>
-            {step.label}
-            {idx !== 0 && (
-              <svg className="h-3 w-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-            )}
-          </div>
-        ))}
-      </div>
-
       {/* Cert cards grid */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {options.map((cert) => {
@@ -862,6 +839,8 @@ export default function LearnerPage() {
   const [engagementConfirmed, setEngagementConfirmed] = useState(false);
   const [showConfirmToast, setShowConfirmToast] = useState(false);
   const [showAdjustMessage, setShowAdjustMessage] = useState(false);
+  const [curatorSubTab, setCuratorSubTab] = useState<"certification" | "modules">("certification");
+  const [certSelected, setCertSelected] = useState(false);
 
   // useAgentChat MUST stay at top level — never inside conditionals
   const { messages, agentState: workflowState, isRunning, activeToolCalls, error, resetSession, sendMessage } =
@@ -916,6 +895,8 @@ export default function LearnerPage() {
         roles: learnerProfile?.roles ?? [],
         seniority: learnerProfile?.seniority ?? "",
         experience_level: learnerProfile?.seniority ?? undefined,
+        current_skills: learnerProfile?.current_skills ?? [],
+        strongest_domains: learnerProfile?.strongest_domains ?? [],
       },
       learning_path: [],
       study_plan: [],
@@ -936,6 +917,8 @@ export default function LearnerPage() {
     resetSession(initialState);
     setScreen("active-session");
     setShowHITL(false);
+    setCuratorSubTab("certification");
+    setCertSelected(false);
     // Auto-kick the workflow with selected topic labels
     setTimeout(() => sendMessage(`Start my learning path for the selected topics: ${topicLabels}`), 50);
   }
@@ -1027,6 +1010,8 @@ export default function LearnerPage() {
 
   const certOptions = (workflowState.cert_options as CertOption[] | undefined) ?? [];
   const curatorReasoning = (workflowState.curator_response as { reasoning?: string } | null)?.reasoning ?? "";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pathEfficiencyReasoning = (workflowState as any).path_efficiency_reasoning as string | undefined ?? "";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const curatorKbActivity = (workflowState as any).kb_activity as {
     query?: string;
@@ -1638,28 +1623,114 @@ export default function LearnerPage() {
                   </div>
                 </section>
 
-                {certOptions.length > 0 && phase === "awaiting_cert_selection" && (
-                  <>
-                    <CertOptionsPanel
-                      options={certOptions}
-                      onSelect={(certId) => sendMessage(certId)}
-                    />
-                    <CuratorReasoningPanel
-                      reasoning={curatorReasoning}
-                      kbActivity={curatorKbActivity}
-                    />
-                  </>
-                )}
+                {/* Learning Path Curator — unified section with agent tabs and curator sub-tabs */}
+                {(certOptions.length > 0 || certSelected || learningPath.length > 0) && (
+                  <section className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                    {/* Agent workflow tabs */}
+                    <div className="flex gap-0 border-b border-slate-200 overflow-x-auto bg-white">
+                      {AGENT_WORKFLOW_STEPS.map((step, idx) => (
+                        <div
+                          key={step.key}
+                          className={`flex shrink-0 items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors select-none ${
+                            idx === 0
+                              ? "border-amber-500 text-amber-700"
+                              : "border-transparent text-slate-400 cursor-not-allowed"
+                          }`}
+                        >
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                            idx === 0 ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"
+                          }`}>
+                            {step.step}
+                          </span>
+                          {step.label}
+                          {idx !== 0 && (
+                            <svg className="h-3 w-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                            </svg>
+                          )}
+                        </div>
+                      ))}
+                    </div>
 
-                {learningPath.length > 0 && (
-                  <section aria-labelledby="path-heading">
-                    <h2 id="path-heading" className="section-label mb-4">Learning Path</h2>
-                    <CourseSection
-                      certId={recommendedCertId ?? learningPath[0]?.cert_id ?? ""}
-                      certName={recommendedCertName ?? certDisplay ?? "Azure Certification"}
-                      items={learningPath}
-                      priorityDomains={priorityDomains}
-                    />
+                    {/* Curator sub-tabs (1.1 / 1.2) */}
+                    <div className="flex gap-0 border-b border-slate-100 bg-amber-50/30">
+                      <button
+                        type="button"
+                        onClick={() => setCuratorSubTab("certification")}
+                        disabled={certOptions.length === 0}
+                        className={`flex shrink-0 items-center gap-1.5 px-5 py-2 text-xs font-semibold border-b-2 transition-colors ${
+                          curatorSubTab === "certification"
+                            ? "border-amber-400 text-amber-700 bg-amber-50"
+                            : certOptions.length === 0
+                              ? "border-transparent text-slate-300 cursor-not-allowed"
+                              : "border-transparent text-slate-500 hover:text-amber-600 hover:bg-amber-50/60"
+                        }`}
+                      >
+                        <span className="font-mono text-[10px] opacity-50">1.1</span>
+                        Certification Recommendation Curator
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCuratorSubTab("modules")}
+                        disabled={!certSelected && learningPath.length === 0}
+                        className={`flex shrink-0 items-center gap-1.5 px-5 py-2 text-xs font-semibold border-b-2 transition-colors ${
+                          curatorSubTab === "modules"
+                            ? "border-amber-400 text-amber-700 bg-amber-50"
+                            : !certSelected && learningPath.length === 0
+                              ? "border-transparent text-slate-300 cursor-not-allowed"
+                              : "border-transparent text-slate-500 hover:text-amber-600 hover:bg-amber-50/60"
+                        }`}
+                      >
+                        <span className="font-mono text-[10px] opacity-50">1.2</span>
+                        Modules Recommended Curator
+                        {certSelected && learningPath.length === 0 && (
+                          <span className="ml-1 h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Sub-tab content */}
+                    <div className="p-5">
+                      {curatorSubTab === "certification" && certOptions.length > 0 && (
+                        <div className="space-y-5">
+                          <CertOptionsPanel
+                            options={certOptions}
+                            onSelect={(certId) => {
+                              setCertSelected(true);
+                              setCuratorSubTab("modules");
+                              sendMessage(certId);
+                            }}
+                          />
+                          <CuratorReasoningPanel
+                            reasoning={curatorReasoning}
+                            kbActivity={curatorKbActivity}
+                          />
+                        </div>
+                      )}
+
+                      {curatorSubTab === "modules" && (
+                        certSelected && learningPath.length === 0 ? (
+                          <div className="flex flex-col items-center gap-4 py-16">
+                            <div className="relative h-10 w-10">
+                              <div className="absolute inset-0 rounded-full border-2 border-amber-100" />
+                              <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-amber-500" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-slate-700">Curating your learning modules…</p>
+                              <p className="text-xs mt-1 text-slate-500">The curator agent is building your personalized path</p>
+                            </div>
+                          </div>
+                        ) : learningPath.length > 0 ? (
+                          <CourseSection
+                            certId={recommendedCertId ?? learningPath[0]?.cert_id ?? ""}
+                            certName={recommendedCertName ?? certDisplay ?? "Azure Certification"}
+                            items={learningPath}
+                            priorityDomains={priorityDomains}
+                            pathEfficiencyReasoning={pathEfficiencyReasoning}
+                          />
+                        ) : null
+                      )}
+                    </div>
                   </section>
                 )}
 
@@ -1753,7 +1824,7 @@ export default function LearnerPage() {
                   </section>
                 )}
 
-                {(phase === "planning" || phase === "studying") && learningPath.length === 0 && (
+                {(phase === "planning" || phase === "studying") && learningPath.length === 0 && certOptions.length === 0 && !certSelected && (
                   <div className="flex flex-col items-center gap-4 py-20">
                     <div className="relative h-10 w-10">
                       <div className="absolute inset-0 rounded-full border-2 border-blue-100" />
