@@ -66,7 +66,8 @@ Learner Input
 → See [`docs/DIAGRAM.md`](docs/DIAGRAM.md) for the high-level architecture diagram (Mermaid flowchart).  
 → See [`docs/WORKFLOW.md`](docs/WORKFLOW.md) for the full Mermaid sequence diagram and state machine.  
 → See [`docs/AGENTS.md`](docs/AGENTS.md) for per-agent deep dives (tools, reasoning patterns, interesting details).  
-→ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system architecture and key design decisions.
+→ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system architecture and key design decisions.  
+→ See [`docs/DATA.md`](docs/DATA.md) for the synthetic data catalog (fixtures, KB documents, and narrative reports).
 
 ---
 
