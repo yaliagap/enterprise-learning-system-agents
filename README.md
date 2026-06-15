@@ -234,6 +234,109 @@ npm run dev
 
 ---
 
+## Azure Deployment
+
+The project ships as a **Foundry-hosted container agent** deployed via Azure Developer CLI (`azd`). A single `azd up` provisions all Azure resources and deploys the container.
+
+### Deployment artifacts
+
+#### `agent.yaml` — Foundry ContainerAgent definition
+
+```yaml
+kind: hosted
+protocols:
+  - protocol: invocations
+    version: 1.0.0
+code_configuration:
+  runtime: python_3_13
+  entry_point: backend/main.py
+  dependency_resolution: remote_build
+```
+
+This is the schema that Foundry uses to register the agent. Key points:
+- **`kind: hosted`** — the agent runs inside Foundry's managed container runtime, not on a custom VM
+- **`protocol: invocations`** — activates the Foundry Invocations Protocol, which is the transport layer this project uses to bridge AG-UI events over Foundry's hosted infrastructure
+- **`entry_point: backend/main.py`** — FastAPI app that exposes the `/api/learn` AG-UI SSE endpoint
+- **`dependency_resolution: remote_build`** — Foundry builds the Python environment remotely from `pyproject.toml`, no pre-built image required in this mode
+
+#### `agent.manifest.yaml` — parameterized template
+
+The manifest version of `agent.yaml` uses `{{PLACEHOLDER}}` variables for all environment-specific values (`FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_MODEL`, `AZURE_SEARCH_ENDPOINT`, etc.). This allows the same agent definition to be deployed across dev, staging, and prod without editing the file — values are injected at deploy time by AZD.
+
+It also declares the GPT-4o model resource:
+```yaml
+resources:
+  - kind: model
+    id: gpt-4o
+    name: FOUNDRY_MODEL
+```
+
+#### `Dockerfile`
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY pyproject.toml ./
+COPY backend/ ./backend/
+RUN pip install --no-cache-dir --pre -e .
+ENV PYTHONPATH=/app/backend
+EXPOSE 8000
+CMD ["python", "backend/main.py"]
+```
+
+The image omits `[local]` extras (ChromaDB, sentence-transformers) intentionally — in the container `USE_REAL_IQ=true`, so the system uses Azure AI Search for the knowledge base, not a local vector store.
+
+#### `azure.yaml` — AZD entrypoint
+
+```yaml
+services:
+  enterprise-learning-agent:
+    host: azure.ai.agent
+    language: docker
+    docker:
+      remoteBuild: true
+infra:
+  provider: bicep
+  path: ./infra
+```
+
+- **`host: azure.ai.agent`** — tells AZD this is a Foundry agent host (not App Service, Container Apps, etc.)
+- **`remoteBuild: true`** — the Docker image is built in Azure, not locally
+- **`infra.provider: bicep`** — all Azure resources are declared in `infra/`
+
+#### `infra/` — Bicep modules
+
+```
+infra/
+├── main.bicep              # Subscription-scope entrypoint
+├── main.parameters.json    # Environment parameters
+└── core/
+    ├── ai/                 # Azure AI Foundry project + AI Services account
+    ├── host/               # Container host configuration
+    ├── monitor/            # Application Insights + Log Analytics
+    ├── search/             # Azure AI Search (Foundry IQ KB)
+    └── storage/            # Storage account for artifacts
+```
+
+`main.bicep` deploys at subscription scope and provisions: Azure AI Foundry, Azure OpenAI (GPT-4o), Azure AI Search, Application Insights, and a storage account. Regions are restricted to locations where Azure AI Foundry Responses API is available.
+
+### One-command deploy
+
+```bash
+# Login
+az login
+azd auth login
+
+# Provision all Azure resources + deploy the container agent
+azd up
+
+# Environment variables are injected automatically from azure.yaml + infra outputs
+```
+
+After `azd up` completes, the Foundry hosted agent is live and the frontend can point `NEXT_PUBLIC_AGENT_URL` at the provisioned endpoint.
+
+---
+
 ## Demo Walkthrough
 
 The full learner flow takes approximately **8–10 minutes** end-to-end.
