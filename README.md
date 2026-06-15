@@ -69,6 +69,78 @@ Learner Input
 
 ---
 
+## Azure AI Foundry — Hosted Agents
+
+Every agent in this system runs as a **Foundry-hosted agent** on Azure AI Foundry. This means each agent is a stateless, independently deployable unit managed by the Foundry runtime — not a standalone process or a long-running service.
+
+```
+Azure AI Foundry Project
+├── Agent: Learning Path Curator       (model: gpt-4o, tools: KB MCP + MS Learn MCP + Fabric IQ)
+├── Agent: Study Plan Generator        (model: gpt-4o, tools: Work IQ + schedule closure)
+├── Agent: Engagement Agent            (model: gpt-4o, tools: Work IQ)
+├── Agent: Assessment Agent            (model: gpt-4o, tools: MS Learn MCP + KB MCP)
+└── Agent: Certification Advisor       (model: gpt-4o, tools: team_benchmark + KB MCP)
+```
+
+Each agent is defined with:
+- A **system prompt** scoped to its specific role and output contract
+- A set of **registered tools** (Function Tools and MCPStreamableTools)
+- A **response format** enforced via Pydantic — the agent is instructed to return structured JSON
+- An **Azure OpenAI deployment** (GPT-4o) as its reasoning core
+
+The **MAF Dispatcher** (`dispatcher.py`) orchestrates execution: on every incoming message, it reads `WorkflowState`, determines which `Executor` owns the current phase, instantiates the corresponding Foundry agent, and runs it. The agent's tool calls and responses are captured and written back to `WorkflowState` before the SSE snapshot is broadcast.
+
+**KB as a Foundry MCPStreamableTool** — the enterprise knowledge base (Azure AI Search) is wired to the relevant agents as a `MCPStreamableTool`, enabling agentic (answer-synthesis) mode: the agent decides when to query, formulates its own query, and receives a synthesized answer with source references — not just raw search results.
+
+---
+
+## AG-UI Protocol
+
+AG-UI is an **open standard protocol** for streaming agent state and messages from a backend agent to a frontend UI in real time. This project uses AG-UI over **Server-Sent Events (SSE)**.
+
+### How it works
+
+```
+Backend (FastAPI)                           Frontend (Next.js)
+─────────────────                           ──────────────────
+POST /api/learn                             useAgentChat hook
+  │                                           │
+  ├── RunAgent(WorkflowState)                 ├── EventSource opens
+  │     │                                     │
+  │     ├── Agent executes tool calls         │
+  │     ├── Agent streams text tokens         ├── TEXT_MESSAGE_CONTENT → chat bubble updates
+  │     ├── WorkflowState mutated             │
+  │     └── STATE_SNAPSHOT emitted ──────────►├── All tabs re-evaluate
+  │                                           │     Tabs unlock based on state
+  └── RUN_FINISHED emitted ─────────────────►└── isRunning = false
+```
+
+### Event types used
+
+| Event | Payload | Effect |
+|---|---|---|
+| `STATE_SNAPSHOT` | Full `WorkflowState` JSON | Tabs unlock, content renders, agent label updates in UI |
+| `TEXT_MESSAGE_START` | `messageId`, `role` | New chat bubble opens (streaming mode) |
+| `TEXT_MESSAGE_CONTENT` | `delta` token | Bubble content appends live |
+| `TEXT_MESSAGE_END` | `messageId` | Bubble finalized, KB panel attached if present |
+| `TOOL_CALL_START` | `toolCallId`, `toolName` | Tool indicator shown |
+| `TOOL_CALL_END` | `toolCallId` | Tool indicator removed |
+| `RUN_FINISHED` | — | Controls re-enable, spinner stops |
+| `RUN_ERROR` | `message` | Error shown in UI |
+
+### Why AG-UI matters here
+
+`STATE_SNAPSHOT` is the backbone of the entire UX. Every time an agent completes a meaningful step — returning cert options, finishing a study plan, producing an engagement proposal, delivering assessment questions, or generating the advisor result — it mutates `WorkflowState` and emits a `STATE_SNAPSHOT`. The frontend receives this snapshot and re-derives all display logic from it:
+
+- Which of the 5 tabs is unlocked
+- Which HITL controls are visible
+- What content is rendered in each tab
+- Which agent attribution label appears in the chat
+
+This means **there is no separate client state store** — the frontend is a pure projection of `WorkflowState`. The `useAgentChat` hook in `frontend/app/hooks/useAgentChat.ts` handles all event parsing, message accumulation, and state hydration.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
