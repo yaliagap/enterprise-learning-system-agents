@@ -303,27 +303,19 @@ export default function EngagementProposalView({
   const { workIQSignals: signals, alerts, totalAlerts, totalMilestones, totalWeeks, activeChannels } = proposal;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-      {/* Header */}
-      <div className="px-6 pt-6 pb-4 border-b border-slate-100 bg-slate-50">
-        <p className="text-xs font-bold tracking-widest text-blue-600 mb-1">
-          STEP 4 OF 4 · ENGAGEMENT AGENT
-        </p>
-        <h2 className="text-xl font-bold text-slate-900 mb-1">Your Engagement Proposal</h2>
-        <p className="text-sm text-slate-500">
-          Personalized alerts grounded in your Work IQ profile — timing, channel, and frequency set automatically.
-        </p>
-      </div>
-
-      <div className="px-6 py-5 space-y-6">
+    <div className="space-y-5">
+      <div className="space-y-6">
         {/* Work IQ banner */}
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold tracking-wider text-slate-500">WORK IQ SIGNALS</p>
-            <span className="rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-medium text-blue-600">
+            <p className="text-xs font-bold tracking-wider text-blue-600">WORK IQ SIGNALS</p>
+            <span className="rounded-full bg-white border border-blue-200 px-2 py-0.5 text-xs font-medium text-blue-600">
               Read automatically
             </span>
           </div>
+          <p className="text-xs text-blue-700 leading-relaxed">
+            Personalized alerts grounded in your Work IQ profile — timing, channel, and frequency set automatically.
+          </p>
           <div className="flex flex-wrap gap-2">
             {[
               `⏰ Focus peak: ${signals.focusPeakStart}–${signals.focusPeakEnd}`,
@@ -352,7 +344,7 @@ export default function EngagementProposalView({
           ].map(({ label, value }) => (
             <div
               key={label}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center"
+              className="rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm"
             >
               <p className="text-2xl font-bold text-slate-900">{value}</p>
               <p className="text-xs text-slate-500 mt-0.5">{label}</p>
@@ -388,13 +380,13 @@ export default function EngagementProposalView({
           <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-slate-100">
             <button
               onClick={onAdjust}
-              className="btn-secondary flex-1 text-center"
+              className="flex-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors text-center"
             >
               Adjust alerts
             </button>
             <button
               onClick={onConfirm}
-              className="btn-primary flex-1 text-center"
+              className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors text-center"
             >
               Confirm and activate plan →
             </button>

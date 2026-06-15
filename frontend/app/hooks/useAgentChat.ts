@@ -78,13 +78,16 @@ export function useAgentChat<TState extends Record<string, unknown>>(url: string
   const pendingWorkflowStatusRef = useRef<string | undefined>(undefined);
 
   const resetSession = useCallback(
-    (initialState: TState) => {
+    (initialState: TState, options?: { preserveMessages?: boolean }) => {
       agentRef.current = new HttpAgent({ url, initialState });
-      setMessages([]);
+      if (!options?.preserveMessages) {
+        setMessages([]);
+      }
       setAgentState(initialState);
       setIsRunning(false);
       setActiveToolCalls([]);
       setError(null);
+      currentAgentRef.current = undefined;
       pendingKbRef.current = undefined;
       pendingCuratorOutputRef.current = undefined;
       pendingCertOptionsRef.current = undefined;
@@ -113,7 +116,7 @@ export function useAgentChat<TState extends Record<string, unknown>>(url: string
         {
           onTextMessageStartEvent({ event }) {
             const agentName = currentAgentRef.current;
-            const kbActivity = agentName === "curator" ? pendingKbRef.current : undefined;
+            const kbActivity = (agentName === "curator" || agentName === "assessment") ? pendingKbRef.current : undefined;
             const curatorOutput = agentName === "curator" ? pendingCuratorOutputRef.current : undefined;
             const certOptions = pendingCertOptionsRef.current;
             const workflowStatus = pendingWorkflowStatusRef.current;

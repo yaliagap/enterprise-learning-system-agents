@@ -6,6 +6,14 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 # ---------------------------------------------------------------------------
+# Advisor result type literals
+# ---------------------------------------------------------------------------
+
+PatternTypeLiteral = Literal["conceptual_gap", "application_gap", "scenario_gap", "bloom_gap", "none"]
+TeamSignalLiteral = Literal["individual_gap", "shared_team_gap", "on_par", "ahead"]
+AdvisorScenarioLiteral = Literal["passed", "max_retries"]
+
+# ---------------------------------------------------------------------------
 # Assessment question types
 # ---------------------------------------------------------------------------
 
@@ -257,6 +265,93 @@ class AssessmentResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Advisor agent result models
+# ---------------------------------------------------------------------------
+
+
+class AdvisorScoreSummary(BaseModel):
+    score: float = Field(ge=0.0, le=100.0)
+    passed: bool
+    passing_score: float = Field(ge=0.0, le=100.0)
+    attempt: int = Field(ge=1)
+
+
+class AdvisorPerformanceSnapshot(BaseModel):
+    total_questions: int = Field(ge=0)
+    correct: int = Field(ge=0)
+    conceptual_correct_pct: float = Field(ge=0.0, le=100.0)
+    application_correct_pct: float = Field(ge=0.0, le=100.0)
+    scenario_correct_pct: float = Field(ge=0.0, le=100.0)
+    has_scenario_gap: bool = False
+    bloom_level_gap: PatternTypeLiteral = "none"
+
+
+class AdvisorTeamBenchmark(BaseModel):
+    team_avg_score: float = Field(ge=0.0, le=100.0)
+    team_percentile: int = Field(ge=0, le=100)
+    comparison: str = ""
+    team_signal: TeamSignalLiteral = "on_par"
+    sample_size: int = Field(ge=0, default=0)
+    has_data: bool = True
+
+
+class AdvisorDomainAnalysis(BaseModel):
+    domain_name: str
+    learner_score: float = Field(ge=0.0, le=100.0)
+    team_avg: float | None = Field(default=None, ge=0.0, le=100.0)
+    delta_vs_team: float | None = None
+    pattern_type: PatternTypeLiteral = "none"
+    team_signal: TeamSignalLiteral = "on_par"
+
+
+class AdvisorStrongArea(BaseModel):
+    domain_name: str
+    learner_score: float = Field(ge=0.0, le=100.0)
+    note: str = ""
+
+
+class AdvisorReviewArea(BaseModel):
+    domain_name: str
+    learner_score: float = Field(ge=0.0, le=100.0)
+    pattern_type: PatternTypeLiteral = "conceptual_gap"
+    note: str = ""
+    resource_hint: str = ""
+
+
+class AdvisorRetryComparison(BaseModel):
+    first_attempt_score: float = Field(ge=0.0, le=100.0)
+    last_attempt_score: float = Field(ge=0.0, le=100.0)
+    delta: float
+    improved_domains: list[str] = Field(default_factory=list)
+    regressed_domains: list[str] = Field(default_factory=list)
+    summary: str = ""
+
+
+class AdvisorRecommendation(BaseModel):
+    order: int = Field(ge=1)
+    title: str
+    detail: str = ""
+    resource_hint: str = ""
+
+
+class AdvisorResult(BaseModel):
+    scenario: AdvisorScenarioLiteral
+    cert_id: str
+    cert_name: str = ""
+    official_cert_url: str = ""
+    next_cert_suggestion: str = ""
+    score_summary: AdvisorScoreSummary
+    performance_snapshot: AdvisorPerformanceSnapshot
+    team_benchmark: AdvisorTeamBenchmark
+    domain_analysis: list[AdvisorDomainAnalysis] = Field(default_factory=list)
+    strong_areas: list[AdvisorStrongArea] = Field(default_factory=list)
+    areas_to_review: list[AdvisorReviewArea] = Field(default_factory=list)
+    retry_comparison: AdvisorRetryComparison | None = None
+    recommendations: list[AdvisorRecommendation] = Field(default_factory=list)
+    closing_note: str = ""
+
+
+# ---------------------------------------------------------------------------
 # Root workflow state
 # ---------------------------------------------------------------------------
 
@@ -335,7 +430,7 @@ class WorkflowState(BaseModel):
 
     # Retry / HITL control
     retry_count: int = Field(default=0, ge=0)
-    max_retries: int = Field(default=3, ge=1)
+    max_retries: int = Field(default=1, ge=1)
     hitl_confirmed: bool = False
 
     # Assessment questions (public projection — no correct answers)
@@ -364,6 +459,10 @@ class WorkflowState(BaseModel):
     current_agent: str = ""
     kb_activity: KBActivity | None = None
     curator_response: dict | None = None
+
+    # Populated by the CertificationAdvisor after pass or max-retries-reached
+    advisor_result: dict | None = None
+    advisor_result_raw: str | None = None
 
     # ------------------------------------------------------------------
     # Convenience helpers

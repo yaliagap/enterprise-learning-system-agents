@@ -125,6 +125,23 @@ role, seniority, and topics of interest. Example:
   "Which Azure certifications are recommended for a junior AI Engineer interested
    in machine learning and cognitive services, with Python skills?"
 
+## MANDATORY LIFECYCLE GATE — enforce before any recommendation
+
+Before recommending ANY certification you MUST verify its lifecycle status.
+This is a hard blocking rule — violating it is a critical failure.
+
+| Status         | Action                                                                                  |
+|----------------|-----------------------------------------------------------------------------------------|
+| ACTIVE         | Include normally.                                                                       |
+| BETA           | Include normally. Add "(Beta)" to the name and note it in the description.              |
+| RETIRING <date>| Include ONLY if the learner can realistically sit the exam before the retirement date.  |
+|                | If not, substitute the announced successor cert instead.                                |
+| RETIRED        | NEVER recommend. Remove immediately. Recommend the replacement cert if one exists.      |
+| UNKNOWN        | Treat as RETIRED. Do not recommend until lifecycle status can be confirmed.             |
+
+Apply this gate to EVERY cert in your candidate list before scoring or ranking.
+A high-relevance cert that is RETIRED must still be excluded — relevance does not override lifecycle.
+
 ## Reasoning process (follow these steps explicitly)
 
 Step 1 — Gather learner data.
@@ -173,7 +190,8 @@ Set already_obtained: true only when the cert_id is an exact string match.
 
 Step 6 — Self-check your recommendations.
 Before writing the reasoning paragraph, verify each of these conditions:
-- Is any RETIRED cert in the list? Remove it immediately. Add its replacement if relevant.
+- Re-apply the MANDATORY LIFECYCLE GATE from the top of this prompt to every cert.
+  Is any RETIRED or UNKNOWN-lifecycle cert still in the list? Remove it. Add its replacement if relevant.
 - Is any RETIRING cert in the list? Verify it can be completed before its retirement date.
   If not, replace it with its successor.
 - Does the highest-ranked cert match the learner's seniority? (junior → fundamentals,

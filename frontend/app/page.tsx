@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAgentChat, type AgentName, type KBActivity, type CertOption } from "@/app/hooks/useAgentChat";
 import { AZURE_TOPICS, getTopicsByFamily } from "@/app/lib/topics";
 import { getLearnerProfile, type LearnerProfile, type CertificationCatalogItem } from "@/app/lib/learner-fixtures";
@@ -16,10 +16,11 @@ import EngagementProposalView, {
   type StudySessionRef,
   type StudyMilestoneRef,
 } from "@/components/EngagementProposalView";
-import AssessmentPanel from "@/components/AssessmentPanel";
 import ExamInterface from "@/components/ExamInterface";
 import AssessmentResults from "@/components/AssessmentResults";
+import AdvisorView from "@/components/AdvisorView";
 import type { AssessmentAnswers, AssessmentQuestion, QuestionResult } from "@/app/lib/assessment-types";
+import type { AdvisorResult } from "@/app/lib/advisor-types";
 
 // ---------------------------------------------------------------------------
 // Types — mirror backend WorkflowState / nested Pydantic schemas exactly
@@ -119,6 +120,9 @@ interface WorkflowState extends Record<string, unknown> {
   // Cert selection fields — populated by Curator Run 1
   cert_options?: CertOption[];
   selected_cert_id?: string | null;
+  // Populated by CertificationAdvisor — structured result
+  advisor_result?: Record<string, unknown> | null;
+  advisor_result_raw?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -431,6 +435,7 @@ const AGENT_WORKFLOW_STEPS = [
   { key: "study_plan", label: "Study Plan Agent",      step: 2 },
   { key: "engagement", label: "Engagement Agent",      step: 3 },
   { key: "assessment", label: "Assessment Agent",      step: 4 },
+  { key: "advisor",    label: "Advisor Agent",         step: 5 },
 ];
 
 const CERT_LEVEL_STYLES: Record<string, string> = {
@@ -690,15 +695,6 @@ function ChatSidebar({
           </div>
         )}
 
-        {engagementConfirmed && (
-          <div className="rounded-xl px-4 py-3 space-y-1 bg-emerald-50 border border-emerald-200">
-            <p className="text-xs font-semibold text-emerald-700">Plan & reminders confirmed</p>
-            <p className="text-xs leading-relaxed text-emerald-600">
-              Your study plan and engagement reminders are all set. Come back whenever you feel ready to take your assessment.
-            </p>
-          </div>
-        )}
-
         <div ref={bottomRef} />
       </div>
 
@@ -876,14 +872,16 @@ export default function LearnerPage() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [showHITL, setShowHITL] = useState(false);
 
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const frozenExamQuestionsRef = useRef<AssessmentQuestion[]>([]);
+  const prevIsRunningRef = useRef(false);
   const [engagementConfirmed, setEngagementConfirmed] = useState(false);
+  const [engagementStarted, setEngagementStarted] = useState(false);
+  const [engagementRunCompleted, setEngagementRunCompleted] = useState(false);
   const [showConfirmToast, setShowConfirmToast] = useState(false);
   const [showAdjustMessage, setShowAdjustMessage] = useState(false);
   const [curatorSubTab, setCuratorSubTab] = useState<"certification" | "modules">("certification");
   const [certSelected, setCertSelected] = useState(false);
-  const [activeAgentTab, setActiveAgentTab] = useState<"curator" | "study_plan" | "engagement" | "assessment">("curator");
+  const [activeAgentTab, setActiveAgentTab] = useState<"curator" | "study_plan" | "engagement" | "assessment" | "advisor">("curator");
   const [savedCertOptions, setSavedCertOptions] = useState<CertOption[]>([]);
   const [moduleChecks, setModuleChecks] = useState<Record<string, boolean>>({});
 
@@ -950,7 +948,7 @@ export default function LearnerPage() {
       engagement_proposal: null,
       assessment_results: [],
       retry_count: 0,
-      max_retries: 3,
+      max_retries: 1,
       hitl_confirmed: false,
       workflow_status: "planning",
       recommended_cert_id: null,
@@ -962,11 +960,16 @@ export default function LearnerPage() {
     };
     resetSession(initialState);
     setScreen("active-session");
+    setActiveAgentTab("curator");
     setShowHITL(false);
     setCuratorSubTab("certification");
     setCertSelected(false);
     setSavedCertOptions([]);
     setModuleChecks({});
+    setEngagementConfirmed(false);
+    setEngagementStarted(false);
+    setEngagementRunCompleted(false);
+    setSelectedTopics([]);
     // Auto-kick the workflow with selected topic labels
     setTimeout(() => sendMessage(`Start my learning path for the selected topics: ${topicLabels}`), 50);
   }
@@ -985,6 +988,7 @@ export default function LearnerPage() {
     setEngagementConfirmed(true);
     setShowConfirmToast(true);
     setTimeout(() => setShowConfirmToast(false), 3000);
+    setActiveAgentTab("assessment");
   }
 
   function handleEngagementAdjust() {
@@ -992,6 +996,7 @@ export default function LearnerPage() {
   }
 
   function handleRetryAssessment() {
+    frozenExamQuestionsRef.current = [];
     sendMessage("retry");
   }
 
@@ -1002,7 +1007,7 @@ export default function LearnerPage() {
       assessment_answers: answers,
       workflow_status: "exam_in_progress",
     };
-    resetSession(updatedState);
+    resetSession(updatedState, { preserveMessages: true });
     setTimeout(() => sendMessage("Assessment submitted"), 50);
   }
 
@@ -1050,6 +1055,31 @@ export default function LearnerPage() {
   useEffect(() => {
     if (assessmentResult || examQuestions.length > 0) setActiveAgentTab("assessment");
   }, [!!assessmentResult, examQuestions.length > 0]);
+
+  useEffect(() => {
+    if (engagementConfirmed) setActiveAgentTab("assessment");
+  }, [engagementConfirmed]);
+
+  useEffect(() => {
+    if (prevIsRunningRef.current && !isRunning && engagementStarted) {
+      setEngagementRunCompleted(true);
+    }
+    prevIsRunningRef.current = isRunning;
+  }, [isRunning]);
+
+  const advisorResult = useMemo<AdvisorResult | null>(() => {
+    const raw = (workflowState as any).advisor_result;
+    if (!raw) return null;
+    if (typeof raw === "object") return raw as AdvisorResult;
+    try { return JSON.parse(raw) as AdvisorResult; } catch { return null; }
+  }, [(workflowState as any).advisor_result]);
+
+  // Auto-switch to advisor tab when advisor result is available
+  useEffect(() => {
+    if ((workflowStatus === "passed" || workflowStatus === "max_retries_reached") && !!advisorResult) {
+      setActiveAgentTab("advisor");
+    }
+  }, [workflowStatus, !!advisorResult]);
 
   const recommendedCertId = workflowState.recommended_cert_id as string | null | undefined;
   const recommendedCertName = workflowState.recommended_cert_name as string | null | undefined;
@@ -1327,7 +1357,7 @@ export default function LearnerPage() {
                   <p className="font-heading text-sm font-semibold text-blue-900 mb-1">✦ Ready to earn a new certification?</p>
                   <p className="text-xs text-blue-700 mb-4">Let AI guide your learning path.</p>
                   <button
-                    onClick={() => setScreen("topic-selection")}
+                    onClick={() => { setSelectedTopics([]); setScreen("topic-selection"); }}
                     className="btn-primary text-sm"
                   >
                     + Start new certification
@@ -1633,16 +1663,7 @@ export default function LearnerPage() {
 
       {/* Body: main content + chat sidebar */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Exam mode: ExamInterface takes the full viewport — chat hidden */}
-        {sessionStarted && phase === "exam_in_progress" && examQuestions.length > 0 ? (
-          <div className="flex-1 overflow-hidden">
-            <ExamInterface
-              questions={examQuestions}
-              onSubmit={handleSubmitAssessment}
-            />
-          </div>
-        ) : (
-          <>
+        <>
             <main className="flex-1 overflow-y-auto px-6 py-8">
               <div className="space-y-8 animate-fade-in">
                 {/* Learner info + cert banner */}
@@ -1708,15 +1729,26 @@ export default function LearnerPage() {
                         const isUnlocked =
                           step.key === "curator" ||
                           (step.key === "study_plan" && timelineSessions.length > 0) ||
-                          (step.key === "engagement" && engagementProposal !== null) ||
-                          (step.key === "assessment" && (assessmentResult !== null || latestAssessmentFull !== null));
+                          (step.key === "engagement" && (engagementProposal !== null || engagementStarted)) ||
+                          (step.key === "assessment" && (
+                            assessmentResult !== null ||
+                            latestAssessmentFull !== null ||
+                            workflowStatus === "awaiting_assessment" ||
+                            workflowStatus === "assessing" ||
+                            examQuestions.length > 0 ||
+                            engagementConfirmed
+                          )) ||
+                          (step.key === "advisor" && (
+                            workflowStatus === "passed" ||
+                            workflowStatus === "max_retries_reached"
+                          ));
                         const isActive = activeAgentTab === step.key;
                         return (
                           <button
                             key={step.key}
                             type="button"
                             disabled={!isUnlocked}
-                            onClick={() => isUnlocked && setActiveAgentTab(step.key as "curator" | "study_plan" | "engagement" | "assessment")}
+                            onClick={() => isUnlocked && setActiveAgentTab(step.key as "curator" | "study_plan" | "engagement" | "assessment" | "advisor")}
                             className={`flex shrink-0 items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors select-none ${
                               isActive
                                 ? "border-amber-500 text-amber-700"
@@ -1893,7 +1925,11 @@ export default function LearnerPage() {
                                 <StudyPlanTimeline sessions={timelineSessions} milestones={studyMilestones} />
                               </div>
                               {workflowStatus === "awaiting_engagement" && (
-                                <EngagementGate onConfirm={() => sendMessage("Proceed with engagement planning")} />
+                                <EngagementGate onConfirm={() => {
+                                  setEngagementStarted(true);
+                                  setActiveAgentTab("engagement");
+                                  sendMessage("Proceed with engagement planning");
+                                }} />
                               )}
                             </>
                           ) : (
@@ -1902,7 +1938,8 @@ export default function LearnerPage() {
                         </div>
                       )}
 
-                      {activeAgentTab === "engagement" && engagementProposal && (
+                      {activeAgentTab === "engagement" && (
+                        engagementProposal ? (
                         <div>
                           <EngagementProposalView
                             proposal={engagementProposal}
@@ -1917,26 +1954,149 @@ export default function LearnerPage() {
                             </p>
                           )}
                         </div>
+                        ) : !engagementRunCompleted ? (
+                          <div className="flex flex-col items-center gap-4 py-20">
+                            <div className="relative h-10 w-10">
+                              <div className="absolute inset-0 rounded-full border-2 border-indigo-100" />
+                              <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-indigo-500" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-slate-700">Configuring your engagement plan…</p>
+                              <p className="text-xs mt-1 text-slate-500">The agent is designing your personalized alerts and reminders</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-amber-100 bg-amber-50 p-6 flex flex-col items-center gap-4 text-center">
+                            <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                              <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">Engagement plan configured</p>
+                              <p className="text-xs text-slate-500 mt-1 leading-relaxed">Your personalized reminders and alerts are ready.<br />You can now proceed to the assessment.</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleEngagementConfirm}
+                              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-6 text-sm transition-colors"
+                            >
+                              Proceed to assessment →
+                            </button>
+                          </div>
+                        )
+                      )}
+
+                      {activeAgentTab === "advisor" && (
+                        <div className="p-5">
+                          <AdvisorView
+                            advisorResult={advisorResult}
+                            onFinalize={() => setScreen("dashboard")}
+                          />
+                        </div>
                       )}
 
                       {activeAgentTab === "assessment" && (
                         <>
-                          {phase === "assessing" && assessmentResult && (
-                            <AssessmentPanel
-                              questions={[]}
-                              currentQuestionIndex={0}
-                              selectedAnswer={selectedAnswer}
-                              result={assessmentResult}
-                              onSelectAnswer={setSelectedAnswer}
-                              onSubmitAnswer={() => {}}
-                              onBackToStudying={() => {
-                                setScreen("dashboard");
-                                setLearnerId("");
-                                setSelectedTopics([]);
-                              }}
+                          {workflowStatus === "awaiting_assessment" && !assessmentResult && examQuestions.length === 0 && (
+                            <div className="space-y-5">
+                              {/* Readiness panel */}
+                              <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50 overflow-hidden">
+                                <div className="px-5 py-4 border-b border-violet-100 flex items-center gap-2">
+                                  <svg className="h-4 w-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span className="text-sm font-bold text-violet-800 tracking-tight">Readiness Assessment</span>
+                                  <span className="ml-auto rounded-full bg-violet-100 border border-violet-200 px-2 py-0.5 text-xs font-semibold text-violet-600">Informational</span>
+                                </div>
+                                <div className="px-5 py-5 flex flex-col sm:flex-row items-center gap-6">
+                                  {/* Radial score */}
+                                  <div className="relative shrink-0 flex items-center justify-center">
+                                    <svg viewBox="0 0 80 80" className="h-24 w-24 -rotate-90">
+                                      <circle cx="40" cy="40" r="32" fill="none" stroke="#ede9fe" strokeWidth="8" />
+                                      <circle
+                                        cx="40" cy="40" r="32" fill="none"
+                                        stroke="#7c3aed"
+                                        strokeWidth="8"
+                                        strokeLinecap="round"
+                                        strokeDasharray={`${2 * Math.PI * 32}`}
+                                        strokeDashoffset={`${2 * Math.PI * 32 * (1 - (readiness || 72) / 100)}`}
+                                        className="transition-all duration-700"
+                                      />
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                      <span className="text-2xl font-black text-violet-700">{readiness || 72}%</span>
+                                      <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-wider">ready</span>
+                                    </div>
+                                  </div>
+                                  {/* Detail */}
+                                  <div className="flex-1 space-y-3">
+                                    <p className="text-sm font-semibold text-slate-800">Your study plan is complete — you are ready to be assessed.</p>
+                                    <p className="text-xs text-slate-500 leading-relaxed">
+                                      This readiness score is an estimate based on your learning path completion and domain coverage.
+                                      It will be enhanced by real performance data as the platform evolves.
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-2 pt-1">
+                                      <div className="rounded-lg bg-white border border-violet-100 px-3 py-2">
+                                        <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-0.5">Study sessions</p>
+                                        <p className="text-sm font-bold text-slate-800">{timelineSessions.length}</p>
+                                      </div>
+                                      <div className="rounded-lg bg-white border border-violet-100 px-3 py-2">
+                                        <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-0.5">Modules planned</p>
+                                        <p className="text-sm font-bold text-slate-800">
+                                          {Object.values(moduleChecks).filter(Boolean).length || learningPath.length}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Start assessment CTA */}
+                              <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col items-center gap-4 text-center">
+                                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                                  <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-slate-800">Ready to take your assessment?</p>
+                                  <p className="text-xs text-slate-500 mt-0.5">When you feel ready, start the AI-powered certification exam.</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => sendMessage("I'm ready to take my assessment")}
+                                  className="w-full max-w-xs rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold py-3 px-6 text-sm transition-all"
+                                >
+                                  Start my assessment →
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Generating — loading while agent builds questions */}
+                          {workflowStatus === "assessing" && examQuestions.length === 0 && (
+                            <div className="flex flex-col items-center gap-4 py-16">
+                              <div className="relative h-10 w-10">
+                                <div className="absolute inset-0 rounded-full border-2 border-violet-100" />
+                                <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-violet-500" />
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm font-semibold text-slate-700">Generating your assessment…</p>
+                                <p className="text-xs mt-1 text-slate-500">The AI is crafting personalized questions based on your learning path</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* In progress — embedded exam */}
+                          {workflowStatus === "exam_in_progress" && examQuestions.length > 0 && (
+                            <ExamInterface
+                              questions={examQuestions}
+                              onSubmit={handleSubmitAssessment}
                             />
                           )}
-                          {(phase === "passed" || phase === "failed" || phase === "exam_failed") && latestAssessmentFull && (
+
+                          {(phase === "passed" || phase === "failed" || phase === "exam_failed" || phase === "max_retries_reached") && latestAssessmentFull && (
                             <AssessmentResults
                               score={latestAssessmentFull.score}
                               passed={latestAssessmentFull.passed}
@@ -1947,6 +2107,7 @@ export default function LearnerPage() {
                               recommendedCertName={recommendedCertName ?? null}
                               recommendedCertId={recommendedCertId ?? null}
                               onRetry={phase === "exam_failed" ? handleRetryAssessment : undefined}
+                              onViewRecommendations={(phase === "passed" || phase === "max_retries_reached") && !!advisorResult ? () => setActiveAgentTab("advisor") : undefined}
                             />
                           )}
                         </>
@@ -1988,8 +2149,7 @@ export default function LearnerPage() {
               disabled={learningPath.length > 0}
             />
           </>
-        )}
-      </div>
+        </div>
 
       {showConfirmToast && (
         <div
