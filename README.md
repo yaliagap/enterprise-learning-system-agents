@@ -10,9 +10,25 @@ An enterprise platform that automates the complete certification learning journe
 **🌐 Live Demo:** https://enterprise-learning-frontend.mangosmoke-abb8c649.northcentralus.azurecontainerapps.io  
 **🎬 Demo Video:** https://youtu.be/rQMbDs-XAU0
 
-| Portal Login | Learning Path Curator |
+| Portal Login | Learner Dashboard |
 |---|---|
-| ![Portal Login](docs/screens/1-Portal%20Login.png) | ![Learning Path Curator](docs/screens/3-Learning%20Path%20Curator%20-%20First%20Step.png) |
+| ![Portal Login](docs/screens/1-Portal%20Login.png) | ![Learner Dashboard](docs/screens/2-Dashboard%20User.png) |
+
+| Learning Path Curator — Cert Options | Learning Path Curator — Curated Path |
+|---|---|
+| ![Learning Path Curator Step 1](docs/screens/3-Learning%20Path%20Curator%20-%20First%20Step.png) | ![Learning Path Curator Step 2](docs/screens/4-Learning%20Path%20Curator%20-%20Second%20Step.png) |
+
+| Study Plan Agent | Engagement Agent |
+|---|---|
+| ![Study Plan Agent](docs/screens/5-Study%20Plan%20Agent.png) | ![Engagement Agent](docs/screens/6-Engagement%20Agent.png) |
+
+| Assessment Agent | Assessment Results |
+|---|---|
+| ![Assessment Agent](docs/screens/7-Assessment%20Agent%20-%20First%20Step.png) | ![Assessment Results](docs/screens/8-Assesment%20Agent%20-%20Result.png) |
+
+| Advisor Agent — Overview | Advisor Agent — Recommendations |
+|---|---|
+| ![Advisor Overview](docs/screens/9-Adivosr%20Agent%20-%20Overview.png) | ![Advisor Recommendations](docs/screens/10-Advisor%20Agent%20-%20Recommendations.png) |
 
 ---
 
