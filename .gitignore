@@ -49,5 +49,8 @@ frontend/.env
 frontend/.env.local
 frontend/tsconfig.tsbuildinfo
 
+# Local docs (not for repo)
+docs/HACKATHON_DESCRIPTION.md
+
 # Logs
 *.log
