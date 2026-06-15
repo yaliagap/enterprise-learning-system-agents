@@ -1,249 +1,260 @@
 # Enterprise Learning System
 
-An AI-powered learning and certification platform that orchestrates a multi-agent pipeline to build personalized study plans, deliver adaptive assessments, and surface team readiness insights — built for the **Agents League / Microsoft Hackathon**.
+> **Reasoning – Enterprise Learning System**  
+> AI-powered, multi-agent certification learning platform built on **Azure AI Foundry** for the Microsoft Agents Hackathon.
+
+An enterprise platform that automates the complete certification learning journey — from skill-gap analysis and adaptive learning path curation to personalized study scheduling, engagement nudges, grounded knowledge assessment, and structured post-assessment coaching. Every stage is handled by a specialized AI agent reasoning over enterprise data, grounded knowledge, and learner history.
 
 > **⚠️ All data in this project is synthetic. No real customer, employee, or organizational data is used.**
 
 ---
 
-## Overview
+## Key Highlights
 
-The system uses **5 specialized AI agents** coordinated through a **Microsoft Agent Framework (MAF)** workflow dispatcher. A **Next.js 14 + CopilotKit** frontend streams the pipeline results to the learner via the **AG-UI protocol** (Server-Sent Events).
+- **5 specialized AI agents** coordinated by a MAF workflow dispatcher
+- **AG-UI protocol** (SSE streaming) — UI updates in real time as agents execute
+- **Azure AI Foundry** — hosted agents with GPT-4o, Azure AI Search (Foundry IQ KB), MS Learn MCP
+- **HITL gates** — learner controls two pivotal decisions before agents proceed
+- **Grounding observable** — every KB query, response, and source citation surfaces in the chat UI
+- **Deterministic + LLM hybrid** — computation-heavy steps (scheduling, scoring, percentile ranking) done in Python; LLM handles language and judgment
 
-### Agent Pipeline
+---
+
+## Agent Pipeline
 
 ```
 Learner Input
      │
      ▼
-┌─────────────────────┐
-│  Dispatcher (MAF)   │  ← Workflow orchestrator; emits RUN_STARTED / RUN_FINISHED
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  Learning Path      │  ← Curator: role-aware cert matching via Foundry IQ + Fabric IQ
-│  Curator            │    Output: LearningPath (ranked cert list)
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  Study Plan         │  ← Generator: time-boxed schedule via Work IQ availability
-│  Generator          │    Streams: STATE_DELTA per session
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  Engagement Agent   │  ← Nudges, streaks, next-best-action via Fabric IQ progress signals
-└─────────┬───────────┘
-          │
-          ▼
-     [HITL Gate]          ← Learner must confirm "Yes, I'm ready" before assessment
-          │
-          ▼
-┌─────────────────────┐
-│  Assessment Agent   │  ← Exam generation + chain-of-thought grading via Foundry IQ
-└─────────────────────┘
-
-                           (independent branch)
-┌─────────────────────┐
-│  Manager Insights   │  ← Team readiness dashboard via Fabric IQ (generative-UI)
-│  Agent              │
-└─────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                    MAF Dispatcher (SeedExecutor)                     │
+│              Routes messages → typed Executor via state machine      │
+└────────────────────────────┬─────────────────────────────────────────┘
+                             │
+          ┌──────────────────▼──────────────────┐
+          │         Learning Path Curator        │  Tab 1
+          │  Run 1: KB + learner profile →       │
+          │         ranked cert options (HITL)   │
+          │  Run 2: MS Learn MCP + KB →          │
+          │         curated path + domain map    │
+          └──────────────────┬──────────────────┘
+                             │ path confirmed (HITL)
+          ┌──────────────────▼──────────────────┐
+          │         Study Plan Generator         │  Tab 2
+          │  Work IQ signals → deterministic     │
+          │  schedule + LLM narrative            │
+          └──────────────────┬──────────────────┘
+          ┌──────────────────▼──────────────────┐
+          │          Engagement Agent            │  Tab 3
+          │  Work IQ → 4 personalized alerts    │
+          │  (reminder/milestone/motivation/risk)│
+          └──────────────────┬──────────────────┘
+                             │ engagement confirmed
+          ┌──────────────────▼──────────────────┐
+          │          Assessment Agent            │  Tab 4
+          │  MS Learn MCP + KB → 15 grounded    │
+          │  questions (Bloom-tagged, validated) │
+          └──────────────────┬──────────────────┘
+                             │ pass / max_retries_reached
+          ┌──────────────────▼──────────────────┐
+          │        Certification Advisor         │  Tab 5
+          │  Bloom gap analysis + team benchmark │
+          │  → structured AdvisorResult JSON     │
+          └─────────────────────────────────────┘
 ```
 
-### IQ Grounding Layers
+→ See [`docs/WORKFLOW.md`](docs/WORKFLOW.md) for the full Mermaid sequence diagram and state machine.  
+→ See [`docs/AGENTS.md`](docs/AGENTS.md) for per-agent deep dives (tools, reasoning patterns, interesting details).  
+→ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system architecture and key design decisions.
 
-| Layer | Mock Provider | Real Target (stub) |
-|---|---|---|
-| **Foundry IQ** | ChromaDB + SentenceTransformer (in-process) | Azure AI Search |
-| **Fabric IQ** | JSON fixtures (learner_profiles, team_aggregates) | Microsoft Fabric REST |
-| **Work IQ** | JSON fixtures (calendar_signals) | Microsoft Graph Calendar |
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | Next.js 15, TypeScript, Tailwind CSS |
+| **Backend** | FastAPI, Python 3.11+, Pydantic v2 |
+| **Agent Framework** | MAF (Microsoft Agent Framework) |
+| **Streaming Protocol** | AG-UI (open standard) over SSE |
+| **LLM** | GPT-4o via Azure OpenAI |
+| **Knowledge Base** | Azure AI Search (Foundry IQ, agentic mode) |
+| **Grounding** | MS Learn MCP (streamable HTTP) |
+| **Learner Data** | Fabric IQ (fixture-backed) |
+| **Engagement Signals** | Work IQ (fixture-backed) |
+| **Deployment** | Azure Developer CLI (`azd`) |
 
 ---
 
 ## Prerequisites
 
-| Tool | Version |
-|---|---|
-| Python | 3.11+ |
-| Node.js | 18+ |
-| Docker + Docker Compose | any recent |
-| Azure CLI | latest (`az login` required for real IQ only) |
-| Azure AI Foundry project | required for `USE_REAL_IQ=true` only |
+| Tool | Version | Notes |
+|---|---|---|
+| Python | 3.11+ | |
+| Node.js | 18+ | |
+| Azure CLI | latest | `az login` required for real Azure mode |
+| Azure AI Foundry project | — | Required for `USE_REAL_IQ=true` |
 
-For the default **mock mode** (all fixture-backed), only Python and Node are required. Docker is needed only for the Aspire Dashboard (optional for local dev).
+For **mock mode** (all fixture-backed, no Azure required), only Python and Node.js are needed.
 
 ---
 
 ## Quick Start
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
-git clone <repo-url>
-cd enterprise-learning-system
+git clone https://github.com/yaliagap/enterprise-learning-system-agents.git
+cd enterprise-learning-system-agents
 ```
 
 ### 2. Install Python dependencies
 
 ```bash
 pip install -e ".[dev]"
+# or
+pip install -r requirements.txt
 ```
 
-### 3. Configure environment variables
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
-# Edit .env — see the Environment Variables table below.
-# Minimum required for mock mode: OPENAI_API_KEY
+# Minimum for mock mode: set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY
 ```
 
-### 4. Start the Aspire Dashboard (optional — for OTel traces)
+Backend variables (`.env`):
 
-```bash
-docker compose up -d
-# Dashboard UI: http://localhost:18888
-# OTLP endpoint: localhost:4317
-```
+| Variable | Description | Required |
+|---|---|---|
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | **Yes** |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key | **Yes** |
+| `AZURE_OPENAI_DEPLOYMENT` | GPT-4o deployment name | **Yes** |
+| `USE_REAL_IQ` | `true` to enable Azure AI Search + real IQ providers | No (default: `false`) |
+| `AZURE_SEARCH_ENDPOINT` | Azure AI Search endpoint | Only if `USE_REAL_IQ=true` |
+| `AZURE_SEARCH_API_KEY` | Azure AI Search API key | Only if `USE_REAL_IQ=true` |
+| `FOUNDRY_IQ_KB_NAME` | Knowledge base name in Azure AI Search | Only if `USE_REAL_IQ=true` |
+| `FOUNDRY_IQ_OUTPUT_MODE` | KB output mode (`extractive` or `generative`) | Only if `USE_REAL_IQ=true` |
 
-### 5. Start the backend
+Frontend variables (`frontend/.env.local`, copy from `frontend/env.local.example`):
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_AGENT_URL` | Backend AG-UI endpoint (default: `http://localhost:8000/api/learn`) |
+
+### 4. Start the backend
 
 ```bash
 cd backend
 uvicorn api.server:app --reload
-# API: http://localhost:8000
-# AG-UI SSE endpoint: http://localhost:8000/api/learn
+# Running at http://localhost:8000
+# AG-UI SSE endpoint: POST http://localhost:8000/api/learn
 ```
 
-### 6. Start the frontend
+### 5. Start the frontend
 
 ```bash
 cd frontend
 npm install
 npm run dev
-# App: http://localhost:3000
+# Running at http://localhost:3000
 ```
 
-### 7. Open the app
+---
 
-Navigate to **http://localhost:3000** in your browser.
+## Demo Walkthrough
+
+The full learner flow takes approximately **8–10 minutes** end-to-end.
+
+### Step 1 — Login
+Enter a learner ID (e.g. `EMP-001`) and click **Sign in**. The dashboard shows the learner's profile, role, and seniority.
+
+### Step 2 — Select topics + start session
+Click **+ Start new certification**, pick 2–4 interest topics (e.g. *Natural Language Processing*, *Generative AI*), and click **Start learning session**. The workflow kicks off automatically.
+
+### Step 3 — Curator Agent (Tab 1)
+Watch the **Curator Agent** analyze the learner's profile and query the Knowledge Base. The **Foundry IQ** panel in the chat shows the KB query, synthesized response, and source citations. A ranked list of 3–5 certification options appears — select one (e.g. **AI-102**).
+
+The agent then builds a full learning path with MS Learn resources, estimated hours per module, and domain weights. Resources are flagged as *necessary* or *optional* based on the learner's existing skills.
+
+### Step 4 — Study Plan Agent (Tab 2)
+Click **Build my intelligent study plan**. The **Study Plan Generator** reads Work IQ signals (preferred days, session duration, focus peak hours) and produces a week-by-week schedule. The timeline calendar renders progressively via SSE.
+
+### Step 5 — Engagement Agent (Tab 3)
+The **Engagement Agent** generates 4 personalized nudge alerts calibrated to the learner's channel preferences (Slack/email), response rates, and meeting windows. Review the proposal and click **Confirm engagement plan**.
+
+### Step 6 — Assessment Agent (Tab 4)
+The agent generates **15 grounded assessment questions** — distributed proportionally across exam domains, tagged with Bloom's taxonomy levels, and grounded in official MS Learn content. The KB consultation panel appears in the chat. Complete the exam and submit.
+
+- **Pass (≥70%)** → Advisor tab unlocks automatically
+- **Fail** → Retry button appears (max 1 retry)
+- **Fail twice** → Advisor tab unlocks with constructive analysis
+
+### Step 7 — Certification Advisor (Tab 5)
+The **Advisor Agent** delivers a structured analysis:
+- Score ring (green = pass / red = max retries reached)
+- Team percentile bar (your score vs. 20-engineer team cohort)
+- Domain cards with pattern badges (`conceptual_gap` / `bloom_gap` / `scenario_gap`)
+- Retry comparison (if second attempt)
+- Prioritized recommendations with MS Learn resource hints
+- Closing note (celebratory or constructive tone)
+
+Click **Finalize track** to return to the dashboard.
 
 ---
 
-## Environment Variables
+## Project Structure
 
-Copy `.env.example` to `.env` and fill in the values.
-
-| Variable | Description | Required |
-|---|---|---|
-| `OPENAI_API_KEY` | OpenAI API key for the LLM backbone | **Yes** |
-| `USE_REAL_IQ` | Set to `true` to enable real Azure IQ providers | No (default: `false`) |
-| `AZURE_FOUNDRY_ENDPOINT` | Azure AI Foundry project endpoint URL | Only if `USE_REAL_IQ=true` |
-| `AZURE_FOUNDRY_API_KEY` | Azure AI Foundry API key | Only if `USE_REAL_IQ=true` |
-| `CHROMA_DB_PATH` | Persistent ChromaDB path (omit for in-memory) | No |
-| `OTLP_ENDPOINT` | OTLP gRPC endpoint for traces | No (default: `http://localhost:4317`) |
-| `BACKEND_URL` | Backend URL used by the frontend CopilotKit runtime | No (default: `http://localhost:8000`) |
-
-Frontend environment variables go in `frontend/.env.local` (copy from `frontend/env.local.example`):
-
-| Variable | Description | Required |
-|---|---|---|
-| `NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL` | CopilotKit runtime URL (usually `/api/copilotkit`) | **Yes** |
-| `OPENAI_API_KEY` | OpenAI key used by the CopilotKit Next.js runtime | **Yes** |
-| `BACKEND_URL` | FastAPI backend base URL | No (default: `http://localhost:8000`) |
-
----
-
-## Running Tests
-
-Tests live in `backend/tests/` and use `pytest`. Run from the `backend/` directory:
-
-```bash
-cd backend
-pytest tests/ -v
 ```
-
-The test suite covers:
-
-- **`tests/test_grounding.py`** — IQ provider smoke tests (MockFoundryIQ, MockFabricIQ, MockWorkIQ)
-- **`tests/test_tools.py`** — MAF tool function smoke tests (search, profile, question generation, scoring)
-- **`tests/test_workflow_state.py`** — WorkflowState lifecycle, retry logic, HITL guard
-
-No external services or API keys are required to run tests (mock mode only).
-
----
-
-## Demo Script
-
-Follow these steps to walk judges through the full system in approximately 5 minutes.
-
-### Learner Flow
-
-1. Open **http://localhost:3000**
-2. Enter learner ID **`EMP-001`** and select certification **AZ-204** from the dropdown
-3. Click **Start Learning Path**
-4. Watch the CopilotKit sidebar and main panel stream in real time:
-   - **Curator agent** generates a ranked learning path → `LearningPathCard` components appear
-   - **Study Plan agent** builds a time-boxed schedule → `StudyPlanTimeline` fills progressively
-   - **Engagement agent** generates nudges and streak messaging
-5. The **HITL gate** triggers: a full-screen confirmation overlay appears
-   - Click **"Yes, I'm ready"** to proceed to assessment
-   - (Clicking "Not yet" delivers the partial plan and ends the workflow gracefully)
-6. The **Assessment agent** streams 5 practice questions with chain-of-thought grading
-   - Answer each question using the radio options in `AssessmentPanel`
-   - Watch the `ReadinessGauge` update after each submission
-7. The final result screen shows: overall score, pass/fail, weak areas, next certification recommendation
-
-### Aspire Dashboard (OTel Traces)
-
-1. Open **http://localhost:18888**
-2. Click on the most recent trace
-3. Verify the trace tree shows child spans for all 5 agents plus IQ calls
-4. Observe the temporal gap between the Engagement and Assessment spans — this is the HITL pause
-
-### Manager Flow
-
-1. Click **Manager View** in the navigation (or navigate to **http://localhost:3000/manager**)
-2. Enter team ID **`TEAM-A`** and click **Load Team**
-3. The generative-UI dashboard renders:
-   - Team average readiness gauge
-   - At-risk member count
-   - `TeamRiskTable` with per-member status, hours studied, and readiness score
-
----
-
-## Architecture Notes
-
-### AG-UI Protocol
-
-The backend exposes a single SSE endpoint (`POST /api/learn`) using `add_agent_framework_fastapi_endpoint`. The frontend binds to it via CopilotKit's `useCoAgent` hook. State updates flow as `STATE_DELTA` events; the HITL gate uses CopilotKit's `renderAndWaitForResponse` pattern.
-
-### Port-Adapter Pattern (IQ Providers)
-
-All grounding is behind abstract ports (`grounding/base.py`). Mock providers are the default. Real Azure provider stubs are wired behind `USE_REAL_IQ=true`. Swapping providers requires no changes outside `grounding/`.
-
-### OTel Instrumentation
-
-Every agent invocation and every IQ provider call is wrapped in an OpenTelemetry span. The `configure_otel_providers()` function at startup wires an OTLP exporter to the Aspire Dashboard collector.
+├── backend/
+│   ├── agents/                  # One module per agent
+│   │   ├── curator.py           # Two-run cert recommendation + path curation
+│   │   ├── study_plan.py        # Deterministic schedule + LLM narrative
+│   │   ├── engagement.py        # Work IQ signals → engagement proposal
+│   │   ├── assessment.py        # Grounded 15-question generation + validation
+│   │   ├── advisor.py           # Structured AdvisorResult + team benchmark analysis
+│   │   └── tools/               # @tool functions (advisor, work_iq, fabric_iq, mslearn)
+│   ├── workflow/
+│   │   ├── state.py             # WorkflowState + all Pydantic models
+│   │   └── dispatcher.py        # MAF executors + state machine
+│   ├── grounding/               # Abstract IQ provider ports + mock implementations
+│   ├── data/
+│   │   ├── fixtures/            # Learner profiles, cert catalog, Work IQ, team benchmarks
+│   │   └── kb_documents/        # KB source documents (exam QA, team insights per cert)
+│   └── api/server.py            # FastAPI app + AG-UI SSE endpoint
+├── frontend/
+│   ├── app/
+│   │   ├── page.tsx             # Main 5-tab workflow orchestration component
+│   │   ├── hooks/useAgentChat.ts # AG-UI SSE client hook
+│   │   └── lib/                 # TypeScript type definitions
+│   └── components/              # AdvisorView, AssessmentResults, ExamInterface, ...
+├── docs/
+│   ├── ARCHITECTURE.md          # System architecture + design decisions
+│   ├── AGENTS.md                # Per-agent catalog (tools, reasoning, details)
+│   └── WORKFLOW.md              # Mermaid sequence diagram + state machine
+└── infra/                       # Azure bicep + azd configuration
+```
 
 ---
 
 ## Responsible AI
 
-- **Catalog grounding**: The Learning Path Curator filters out any cert ID not present in `certification_catalog.json`, preventing hallucinated certifications from reaching the learner.
-- **Over-scheduling guard**: The Study Plan Generator never schedules more daily hours than the learner's declared availability.
-- **HITL gate**: The Assessment Agent is blocked by `AssessmentNotConfirmedError` until the learner explicitly confirms readiness.
-- **PII scope**: The Manager Insights Agent is constrained to `team_aggregates.json` scope — no individual names or identifiers outside that fixture are exposed.
-- **Assessment approval mode**: The Assessment Agent runs with `approval_mode="always_require"`, ensuring every grading step is surfaced to the learner.
-- **No hardcoded secrets**: All API keys and credentials are read from environment variables at startup.
+| Concern | Mitigation |
+|---|---|
+| **Hallucinated certifications** | Curator validates all cert IDs against `certification_catalog.json` — unlisted certs are rejected |
+| **PII in advisor output** | `_scrub_result()` applies regex-based redaction on all free-text fields before storage |
+| **Over-scheduling** | Study Plan Generator never exceeds the learner's declared weekly capacity |
+| **Assessment integrity** | `correct_answers` are stripped from the public `AssessmentQuestionPublic` projection sent to the frontend — server-side grading only |
+| **Learner agency** | Two HITL gates (cert selection, path confirmation) ensure the learner controls key decisions |
+| **No hardcoded secrets** | All keys and credentials read from environment variables at runtime |
 
 ---
 
 ## Hackathon Context
 
-**Event**: Agents League — Microsoft Hackathon  
-**Challenge**: Enterprise AI Agents with Microsoft Agent Framework + AG-UI  
-**Stack**: Python 3.11 · FastAPI · Microsoft Agent Framework (MAF) · AG-UI SSE · Next.js 14 · CopilotKit · ChromaDB · OpenTelemetry · Aspire Dashboard  
+**Event**: Microsoft Agents Hackathon  
+**Title**: Reasoning – Enterprise Learning System  
+**Tagline**: *From skill gap to certified — one AI-powered journey*  
+**Stack**: Python 3.11 · FastAPI · Microsoft Agent Framework (MAF) · AG-UI SSE · Azure AI Foundry · Azure OpenAI (GPT-4o) · Azure AI Search · MS Learn MCP · Next.js 15 · Tailwind CSS  
 
 > **⚠️ All data in this project is synthetic. No real customer, employee, or organizational data is used.**
