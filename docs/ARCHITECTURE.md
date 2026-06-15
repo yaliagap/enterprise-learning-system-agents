@@ -3,6 +3,8 @@
 > AI-powered, multi-agent certification learning platform built on **Azure AI Foundry**.
 > Hackathon project: *Reasoning – Enterprise Learning System*
 
+→ For a visual overview, see [`DIAGRAM.md`](DIAGRAM.md) — high-level architecture flowchart (renders in GitHub).
+
 ---
 
 ## Overview
