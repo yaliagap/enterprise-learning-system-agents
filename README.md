@@ -10,6 +10,10 @@ An enterprise platform that automates the complete certification learning journe
 **🌐 Live Demo:** https://enterprise-learning-frontend.mangosmoke-abb8c649.northcentralus.azurecontainerapps.io  
 **🎬 Demo Video:** https://youtu.be/rQMbDs-XAU0
 
+| Portal Login | Learning Path Curator |
+|---|---|
+| ![Portal Login](docs/screens/1-Portal%20Login.png) | ![Learning Path Curator](docs/screens/3-Learning%20Path%20Curator%20-%20First%20Step.png) |
+
 ---
 
 ## Key Highlights
