@@ -7,7 +7,8 @@ An enterprise platform that automates the complete certification learning journe
 
 > **⚠️ All data in this project is synthetic. No real customer, employee, or organizational data is used.**
 
-**🌐 Live Demo:** https://enterprise-learning-frontend.mangosmoke-abb8c649.northcentralus.azurecontainerapps.io
+**🌐 Live Demo:** https://enterprise-learning-frontend.mangosmoke-abb8c649.northcentralus.azurecontainerapps.io  
+**🎬 Demo Video:** https://youtu.be/rQMbDs-XAU0
 
 ---
 
