@@ -3,6 +3,8 @@
 > AI-powered, multi-agent certification learning platform built on **Azure AI Foundry**.
 > Hackathon project: *Reasoning – Enterprise Learning System*
 
+**🌐 Live Demo:** https://enterprise-learning-frontend.mangosmoke-abb8c649.northcentralus.azurecontainerapps.io
+
 → For a visual overview, see [`DIAGRAM.md`](DIAGRAM.md) — high-level architecture flowchart (renders in GitHub).
 
 ---
@@ -52,7 +54,9 @@ The Enterprise Learning System automates the complete certification learning jou
 | Layer | Technology | Role |
 |---|---|---|
 | **Frontend** | Next.js 15, TypeScript, Tailwind CSS | Multi-tab agentic UI with real-time SSE streaming |
+| **Frontend Hosting** | Azure Container Apps | Containerized Next.js with Edge Runtime proxy; scales to zero when idle |
 | **Backend** | FastAPI, Python 3.11+, Pydantic v2 | API server + workflow orchestration |
+| **Backend Hosting** | Azure AI Foundry Hosted Agent | Managed compute, Entra ID identity, built-in observability |
 | **Agent Framework** | MAF (Microsoft Agent Framework) | Agent execution, tool dispatch, executor routing |
 | **Protocol** | AG-UI (open standard) over SSE | Real-time agent ↔ UI communication |
 | **LLM** | GPT-4o via Azure OpenAI | Reasoning core for all agents |
@@ -61,7 +65,8 @@ The Enterprise Learning System automates the complete certification learning jou
 | **Learner Data** | Fabric IQ (fixture-backed) | Learner profiles, history, performance records |
 | **Engagement Signals** | Work IQ (fixture-backed) | Focus patterns, channel preferences, availability |
 | **State** | Pydantic `WorkflowState` | Single source of truth for all agents, serialized on every SSE tick |
-| **Deployment** | Azure Developer CLI (`azd`) | One-command deploy to Azure Container Apps |
+| **Backend Deploy** | Azure Developer CLI (`azd`) | One-command deploy of Foundry Hosted Agent |
+| **Frontend Deploy** | `az acr build` + `az containerapp` | Multi-stage Docker build → ACR → Container Apps |
 
 ---
 

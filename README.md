@@ -7,6 +7,8 @@ An enterprise platform that automates the complete certification learning journe
 
 > **⚠️ All data in this project is synthetic. No real customer, employee, or organizational data is used.**
 
+**🌐 Live Demo:** https://enterprise-learning-frontend.mangosmoke-abb8c649.northcentralus.azurecontainerapps.io
+
 ---
 
 ## Key Highlights
@@ -336,6 +338,55 @@ azd up
 ```
 
 After `azd up` completes, the Foundry hosted agent is live and the frontend can point `NEXT_PUBLIC_AGENT_URL` at the provisioned endpoint.
+
+### Frontend — Azure Container Apps
+
+The Next.js frontend is deployed separately as an Azure Container App using a multi-stage Docker build with `output: 'standalone'`.
+
+**Build and push image to ACR:**
+
+```bash
+# Create ACR (first time only)
+az acr create --name learningagentacr --resource-group <resource-group> --sku Basic --admin-enabled true
+
+# Build image in Azure (no local Docker required)
+az acr build --registry learningagentacr --image enterprise-learning-frontend:latest --file frontend/Dockerfile ./frontend
+```
+
+**Create Container Apps environment and deploy (first time):**
+
+```bash
+az containerapp env create \
+  --name learning-agent-env \
+  --resource-group <resource-group> \
+  --location <location>
+
+az containerapp create \
+  --name enterprise-learning-frontend \
+  --resource-group <resource-group> \
+  --environment learning-agent-env \
+  --image learningagentacr.azurecr.io/enterprise-learning-frontend:latest \
+  --registry-server learningagentacr.azurecr.io \
+  --target-port 3000 \
+  --ingress external \
+  --min-replicas 0 \
+  --max-replicas 1 \
+  --cpu 0.5 --memory 1.0Gi \
+  --env-vars FOUNDRY_AGENT_URL=<foundry-endpoint> \
+  --secrets foundry-key=<foundry-api-key> \
+  --env-vars FOUNDRY_API_KEY=secretref:foundry-key
+```
+
+**Redeploy after code changes:**
+
+```bash
+az acr build --registry learningagentacr --image enterprise-learning-frontend:latest --file frontend/Dockerfile ./frontend
+az containerapp update --name enterprise-learning-frontend --resource-group <resource-group> --image learningagentacr.azurecr.io/enterprise-learning-frontend:latest
+```
+
+**Live deployment:** https://enterprise-learning-frontend.mangosmoke-abb8c649.northcentralus.azurecontainerapps.io
+
+> `--min-replicas 0` scales to zero when idle — minimal cost for demo/hackathon usage.
 
 ---
 
