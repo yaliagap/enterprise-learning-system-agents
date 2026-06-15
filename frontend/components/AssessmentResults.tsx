@@ -17,6 +17,7 @@ interface AssessmentResultsProps {
   recommendedCertName?: string | null;
   recommendedCertId?: string | null;
   onRetry?: () => void;
+  onViewRecommendations?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +155,7 @@ export default function AssessmentResults({
   recommendedCertName,
   recommendedCertId,
   onRetry,
+  onViewRecommendations,
 }: AssessmentResultsProps) {
   const questionMap = new Map(questions.map((q) => [q.id, q]));
   const certId = recommendedCertId ?? null;
@@ -235,16 +237,30 @@ export default function AssessmentResults({
         </p>
       )}
 
-      {/* Retry button (fail only, when retry is available) */}
-      {!passed && onRetry && (
-        <div className="mb-5">
-          <button
-            type="button"
-            onClick={onRetry}
-            className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            Retry Assessment
-          </button>
+      {/* Action buttons */}
+      {(onRetry || onViewRecommendations) && (
+        <div className="mb-5 flex gap-3">
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Retry Assessment
+            </button>
+          )}
+          {onViewRecommendations && (
+            <button
+              type="button"
+              onClick={onViewRecommendations}
+              className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center justify-center gap-2"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+              View final recommendations →
+            </button>
+          )}
         </div>
       )}
 

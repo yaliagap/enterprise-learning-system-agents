@@ -358,17 +358,10 @@ export default function ExamInterface({ questions, onSubmit }: ExamInterfaceProp
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Exam header */}
-      <div className="shrink-0 bg-violet-600 text-white px-6 py-3 text-center">
-        <p className="text-xs font-semibold uppercase tracking-widest">
-          You must complete this assessment to continue
-        </p>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-col gap-0">
+      <div className="flex gap-5 items-start">
         {/* Left panel — question */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 min-w-0 py-1">
           {/* Progress */}
           <div className="mb-5">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
@@ -488,7 +481,7 @@ export default function ExamInterface({ questions, onSubmit }: ExamInterfaceProp
         </div>
 
         {/* Right panel — navigator */}
-        <aside className="w-56 shrink-0 border-l border-slate-200 bg-slate-50 px-4 py-6">
+        <aside className="w-52 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 sticky top-4 self-start">
           <QuestionNavigator
             total={questions.length}
             currentIndex={currentIndex}
@@ -498,7 +491,7 @@ export default function ExamInterface({ questions, onSubmit }: ExamInterfaceProp
             onJump={setCurrentIndex}
           />
 
-          <div className="mt-6 pt-4 border-t border-slate-200">
+          <div className="mt-4 pt-4 border-t border-slate-200">
             <p className="text-xs text-slate-500">
               <span className="font-semibold text-slate-700">{answeredIds.size}</span>
               {" "}of{" "}

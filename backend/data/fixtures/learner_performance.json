@@ -162,6 +162,237 @@
         "Implement Computer Vision Solutions"
       ],
       "completed_at": "2026-06-14T01:19:14.050823Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-103",
+      "attempt_number": 1,
+      "score": 26.67,
+      "domain_scores": {
+        "Implement generative AI and agentic solutions": 0.0,
+        "Plan and manage an Azure AI solution": 100.0,
+        "Manage, monitor, and secure AI systems": 0.0,
+        "Implement text analysis solutions": 0.0,
+        "Implement responsible AI across generative AI and agentic systems": 33.3,
+        "Implement information extraction solutions": 50.0,
+        "Implement computer vision solutions": 0.0
+      },
+      "weak_areas": [
+        "Implement generative AI and agentic solutions",
+        "Manage, monitor, and secure AI systems",
+        "Implement text analysis solutions",
+        "Implement responsible AI across generative AI and agentic systems",
+        "Implement information extraction solutions",
+        "Implement computer vision solutions"
+      ],
+      "completed_at": "2026-06-14T21:31:38.203056Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 1,
+      "score": 0.0,
+      "domain_scores": {
+        "Identify AI concepts and responsibilities": 0.0,
+        "Identify AI workloads": 0.0,
+        "Describe principles of responsible AI": 0.0,
+        "Implement AI solutions by using Microsoft Foundry": 0.0
+      },
+      "weak_areas": [
+        "Identify AI concepts and responsibilities",
+        "Identify AI workloads",
+        "Describe principles of responsible AI",
+        "Implement AI solutions by using Microsoft Foundry"
+      ],
+      "completed_at": "2026-06-14T22:19:54.985050Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 2,
+      "score": 0.0,
+      "domain_scores": {
+        "Describe artificial intelligence workloads and considerations": 0.0,
+        "Describe features of generative AI workloads on Azure": 0.0,
+        "Describe features of natural language processing (NLP) workloads on Azure": 0.0,
+        "Describe features of computer vision workloads on Azure": 0.0,
+        "Describe principles of responsible AI": 0.0,
+        "Describe fundamental principles of machine learning on Azure": 0.0
+      },
+      "weak_areas": [
+        "Describe artificial intelligence workloads and considerations",
+        "Describe features of generative AI workloads on Azure",
+        "Describe features of natural language processing (NLP) workloads on Azure",
+        "Describe features of computer vision workloads on Azure",
+        "Describe principles of responsible AI",
+        "Describe fundamental principles of machine learning on Azure"
+      ],
+      "completed_at": "2026-06-14T22:28:27.073372Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 3,
+      "score": 13.33,
+      "domain_scores": {
+        "Manage Azure identities and governance": 50.0,
+        "Implement and manage storage": 0.0,
+        "Deploy and manage Azure compute resources": 100.0,
+        "Implement and manage virtual networking": 0.0,
+        "Monitor and maintain Azure resources": 0.0
+      },
+      "weak_areas": [
+        "Manage Azure identities and governance",
+        "Implement and manage storage",
+        "Implement and manage virtual networking",
+        "Monitor and maintain Azure resources"
+      ],
+      "completed_at": "2026-06-14T22:54:08.275252Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 4,
+      "score": 0.0,
+      "domain_scores": {
+        "Describe AI concepts and Azure AI services": 0.0,
+        "Describe responsible AI principles and practices": 0.0,
+        "Describe agentic AI concepts": 0.0,
+        "Describe generative AI capabilities on Azure": 0.0
+      },
+      "weak_areas": [
+        "Describe AI concepts and Azure AI services",
+        "Describe responsible AI principles and practices",
+        "Describe agentic AI concepts",
+        "Describe generative AI capabilities on Azure"
+      ],
+      "completed_at": "2026-06-14T23:32:00.682917Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 5,
+      "score": 13.33,
+      "domain_scores": {
+        "Describe AI concepts and Azure AI services": 0.0,
+        "Describe responsible AI principles and practices": 0.0,
+        "Describe generative AI capabilities on Azure": 33.3,
+        "Describe agentic AI concepts": 25.0
+      },
+      "weak_areas": [
+        "Describe AI concepts and Azure AI services",
+        "Describe responsible AI principles and practices",
+        "Describe generative AI capabilities on Azure",
+        "Describe agentic AI concepts"
+      ],
+      "completed_at": "2026-06-14T23:35:46.526106Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 6,
+      "score": 20.0,
+      "domain_scores": {
+        "Describe AI concepts and Azure AI services": 100.0,
+        "Describe generative AI capabilities on Azure": 0.0,
+        "Describe responsible AI principles and practices": 0.0,
+        "Describe agentic AI concepts": 50.0
+      },
+      "weak_areas": [
+        "Describe generative AI capabilities on Azure",
+        "Describe responsible AI principles and practices",
+        "Describe agentic AI concepts"
+      ],
+      "completed_at": "2026-06-14T23:53:55.114015Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 7,
+      "score": 40.0,
+      "domain_scores": {
+        "Describe responsible AI principles and practices": 33.3,
+        "Describe generative AI capabilities on Azure": 25.0,
+        "Describe agentic AI concepts": 60.0
+      },
+      "weak_areas": [
+        "Describe responsible AI principles and practices",
+        "Describe generative AI capabilities on Azure",
+        "Describe agentic AI concepts"
+      ],
+      "completed_at": "2026-06-15T01:17:18.942887Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 8,
+      "score": 33.33,
+      "domain_scores": {
+        "Describe responsible AI principles and practices": 28.6,
+        "Describe generative AI capabilities on Azure": 33.3,
+        "Describe agentic AI concepts": 40.0
+      },
+      "weak_areas": [
+        "Describe responsible AI principles and practices",
+        "Describe generative AI capabilities on Azure",
+        "Describe agentic AI concepts"
+      ],
+      "completed_at": "2026-06-15T01:31:42.739641Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 9,
+      "score": 53.33,
+      "domain_scores": {
+        "Describe responsible AI principles and practices": 66.7,
+        "Describe agentic AI concepts": 25.0,
+        "Describe generative AI capabilities on Azure": 50.0
+      },
+      "weak_areas": [
+        "Describe responsible AI principles and practices",
+        "Describe agentic AI concepts",
+        "Describe generative AI capabilities on Azure"
+      ],
+      "completed_at": "2026-06-15T01:34:15.898863Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 10,
+      "score": 20.0,
+      "domain_scores": {
+        "Describe AI concepts and Azure AI services": 0.0,
+        "Describe responsible AI principles and practices": 33.3,
+        "Describe agentic AI concepts": 0.0,
+        "Describe generative AI capabilities on Azure": 50.0
+      },
+      "weak_areas": [
+        "Describe AI concepts and Azure AI services",
+        "Describe responsible AI principles and practices",
+        "Describe agentic AI concepts",
+        "Describe generative AI capabilities on Azure"
+      ],
+      "completed_at": "2026-06-15T02:47:15.173115Z"
+    },
+    {
+      "learner_id": "EMP-003",
+      "cert_id": "AI-901",
+      "attempt_number": 11,
+      "score": 0.0,
+      "domain_scores": {
+        "Describe AI concepts and Azure AI services": 0.0,
+        "Describe responsible AI principles and practices": 0.0,
+        "Describe agentic AI concepts": 0.0,
+        "Describe generative AI capabilities on Azure": 0.0
+      },
+      "weak_areas": [
+        "Describe AI concepts and Azure AI services",
+        "Describe responsible AI principles and practices",
+        "Describe agentic AI concepts",
+        "Describe generative AI capabilities on Azure"
+      ],
+      "completed_at": "2026-06-15T02:49:06.649344Z"
     }
   ]
 }

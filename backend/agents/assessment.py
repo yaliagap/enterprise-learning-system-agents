@@ -96,14 +96,14 @@ _SYSTEM_PROMPT = textwrap.dedent("""\
     === YOUR TOOLS ===
     - get_learner_performance(learner_id, cert_id): returns the learner's
       history, including domain_scores and weak_areas from their last attempt.
-    - search_knowledge_base(query): searches the internal knowledge base.
+    - search_knowledge_base(query): searches the internal knowledge base to find domains and skill areas
     - ms_learn_microsoft_docs_search(query): searches official Microsoft Learn docs.
 
     === GATHERING CONTEXT ===
     Before generating questions, gather:
     1. The learner's performance history (if any) via get_learner_performance.
     2. The OFFICIAL exam skill area names and weights for this certification.
-       Use search_knowledge_base and/or ms_learn_microsoft_docs_search to find these.
+       Use search_knowledge_base and to find these.
        CRITICAL: the "domain" field in every question must use these official
        skill area names VERBATIM — never invent, rename, or use learning path
        module titles as domain names.
@@ -187,18 +187,25 @@ _SYSTEM_PROMPT = textwrap.dedent("""\
 # Corrective retry prompt
 # ---------------------------------------------------------------------------
 
-_CORRECTIVE_PROMPT = textwrap.dedent("""\
-    Your previous response could not be parsed as a valid JSON object with a "questions" array.
+def _make_corrective_prompt(cert_id: str, learner_id: str, error: str) -> str:
+    return textwrap.dedent(f"""\
+        Your previous response failed validation with this error:
+        {error}
 
-    Please re-generate exactly 15 questions in STRICT JSON format:
-    {
-      "questions": [...15 question objects...],
-      "reasoning_distribution": "<string>"
-    }
+        CERT_ID: {cert_id}
+        LEARNER_ID: {learner_id}
 
-    No markdown, no explanations outside the JSON.
-    Alternatively, a bare JSON array starting with [ and ending with ] is also accepted.
-""")
+        IMPORTANT: question_type MUST be exactly one of: "multiple_choice", "multi_select", "true_false".
+        Do NOT use "scenario_based" — use is_scenario_based: true on a multiple_choice question instead.
+
+        Re-generate exactly 15 questions for {cert_id} in STRICT JSON format:
+        {{
+          "questions": [...15 question objects...],
+          "reasoning_distribution": "<string>"
+        }}
+
+        No markdown, no explanations outside the JSON.
+    """)
 
 # ---------------------------------------------------------------------------
 # Structural Critic check (Python post-parse)
@@ -337,6 +344,7 @@ async def generate_assessment_questions(
     agent: Agent,
     cert_id: str,
     learner_id: str = "UNKNOWN",
+    middleware: list | None = None,
 ) -> tuple[list[AssessmentQuestion], str | None]:
     """Generate 15 assessment questions via LLM with one retry on parse failure.
 
@@ -344,6 +352,7 @@ async def generate_assessment_questions(
         agent: A configured MAF Agent with LLM client and tools.
         cert_id: The certification identifier (e.g. "AZ-900").
         learner_id: The learner's ID for history lookup (default "UNKNOWN").
+        middleware: Optional list of FunctionMiddleware instances (e.g. for KB capture).
 
     Returns:
         Tuple of (list[AssessmentQuestion], reasoning_distribution | None).
@@ -361,9 +370,12 @@ async def generate_assessment_questions(
         "Generate exactly 15 questions. Return ONLY the JSON envelope as instructed."
     )
 
+    _mw = middleware or []
+
     # Attempt 1
+    exc_1_str = ""
     try:
-        raw_1 = await agent.run(messages=user_message)  # type: ignore[arg-type]
+        raw_1 = await agent.run(messages=user_message, middleware=_mw)  # type: ignore[arg-type]
         questions, reasoning = _parse_questions(str(raw_1) if raw_1 else "")
 
         # Run structural critic check
@@ -377,15 +389,17 @@ async def generate_assessment_questions(
             # Soft gate — submit anyway after logging
         return questions, reasoning
     except (ValueError, Exception) as exc_1:
+        exc_1_str = str(exc_1)
         logger.warning(
             "[assessment] First parse attempt failed for cert=%s: %s — retrying",
             cert_id,
             exc_1,
         )
 
-    # Attempt 2 — corrective prompt
+    # Attempt 2 — corrective prompt with full cert/learner context
+    corrective = _make_corrective_prompt(cert_id, learner_id, exc_1_str)
     try:
-        raw_2 = await agent.run(messages=_CORRECTIVE_PROMPT)  # type: ignore[arg-type]
+        raw_2 = await agent.run(messages=corrective, middleware=_mw)  # type: ignore[arg-type]
         questions, reasoning = _parse_questions(str(raw_2) if raw_2 else "")
         return questions, reasoning
     except (ValueError, Exception) as exc_2:

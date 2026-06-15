@@ -61,6 +61,7 @@ from observability.otel import trace_agent_invocation, trace_hitl_gate
 from agents.assessment import generate_assessment_questions
 from workflow.scoring import PASS_THRESHOLD, compute_overall_score, detect_weak_areas, score_question
 from workflow.state import (
+    AdvisorResult,
     AssessmentAnswers,
     AssessmentQuestion,
     AssessmentQuestionPublic,
@@ -241,7 +242,7 @@ class SeedExecutor(Executor):
             state.hitl_confirmed = True
             state.workflow_status = "assessing"
             ctx.set_state("workflow_state", state.model_dump())
-            await _yield_text(ctx, "Assessment confirmed! Starting now...")
+            await _yield_text(ctx, "Creating your personalized assessment — consulting certification knowledge base and learner history...")
             await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
             await ctx.send_message(HITLConfirmedMessage(state=state))
         elif state.workflow_status == "awaiting_engagement":
@@ -252,22 +253,20 @@ class SeedExecutor(Executor):
             await _yield_text(ctx, "Moving to engagement planning...")
             await ctx.send_message(EngagementConfirmedMessage(state=state))
         elif state.workflow_status == "exam_failed":
+            state.retry_count += 1
             logger.info(
-                "[seed] Retrying after exam failure for learner=%s (attempt %d of %d)",
+                "[seed] Re-generating assessment for learner=%s (attempt %d of %d)",
                 state.learner.learner_id,
                 state.retry_count + 1,
-                state.max_retries,
+                state.max_retries + 1,
             )
-            state.retry_count += 1
-            state.workflow_status = "planning"
-            state.hitl_confirmed = False
+            state.workflow_status = "assessing"
             state.assessment_answers = None
             state.assessment_questions = []
             ctx.set_state("workflow_state", state.model_dump())
-            topics_display = ", ".join(state.learner.topics)
-            await _yield_text(ctx, f"Rebuilding your learning path for retry {state.retry_count} of {state.max_retries}...")
+            await _yield_text(ctx, f"Generating a new assessment for attempt {state.retry_count + 1}...")
             await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
-            await ctx.send_message(LearnerMessage(state=state))
+            await ctx.send_message(HITLConfirmedMessage(state=state))
         else:
             topics_display = ", ".join(TOPIC_LABELS.get(t, t) for t in state.learner.topics)
             logger.info(
@@ -1482,7 +1481,7 @@ class HITLGateExecutor(Executor):
         trace_hitl_gate("paused")
 
         await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
-        await _yield_text(ctx, "Your learning path is ready. Send any message to confirm you want to proceed to assessment.")
+        await _yield_text(ctx, "Your engagement plan is configured! Head to the **Assessment** tab to review your readiness and start your assessment when you're ready.")
         # Run ends here. SeedExecutor will resume on the next user message.
 
 
@@ -1535,6 +1534,7 @@ class AssessmentExecutor(Executor):
         )
 
         reasoning: str | None = None
+        kb_capture = _KBCaptureMiddleware()
         with trace_agent_invocation("assessment_agent", learner_id):
             try:
                 from agents.assessment import create_assessment_agent  # noqa: PLC0415
@@ -1558,6 +1558,7 @@ class AssessmentExecutor(Executor):
                                 agent=agent,
                                 cert_id=cert_ref,
                                 learner_id=learner_id,
+                                middleware=[kb_capture, _MCPLoggingMiddleware()],
                             )
                     else:
                         agent = create_assessment_agent(
@@ -1569,6 +1570,7 @@ class AssessmentExecutor(Executor):
                             agent=agent,
                             cert_id=cert_ref,
                             learner_id=learner_id,
+                            middleware=[kb_capture, _MCPLoggingMiddleware()],
                         )
             except Exception as exc:
                 logger.warning(
@@ -1608,7 +1610,24 @@ class AssessmentExecutor(Executor):
         state.assessment_questions = public_questions
         state.workflow_status = "exam_in_progress"
         state.current_agent = "assessment"
-        state.kb_activity = None
+        kb_refs = [
+            GroundingReference(
+                title=r.get("title", "KB Document"),
+                url=r.get("url", ""),
+                type=r.get("type", "document"),
+                score=r.get("score"),
+            )
+            for r in kb_capture.references
+        ]
+        state.kb_activity = (
+            KBActivity(
+                query=kb_capture.query,
+                response_text=kb_capture.response_text,
+                references=kb_refs,
+            )
+            if kb_capture.query
+            else None
+        )
         ctx.set_state("workflow_state", state.model_dump())
 
         await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
@@ -1747,9 +1766,9 @@ class AssessmentExecutor(Executor):
             await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
             await _yield_text(
                 ctx,
-                f"Score: {overall_score:.1f}%. Maximum retries reached. "
-                "Please contact your learning administrator for further guidance.",
+                f"Score: {overall_score:.1f}%. Maximum attempts reached — generating your personalized recommendations...",
             )
+            await ctx.send_message(AssessmentPassedMessage(state=state))
 
 
 # ---------------------------------------------------------------------------
@@ -1784,18 +1803,18 @@ class ManagerExecutor(Executor):
 
 
 class CertificationAdvisorExecutor(Executor):
-    """Runs the CertificationAdvisorAgent after a learner passes the assessment.
+    """Runs the CertificationAdvisorAgent after a learner passes or exhausts retries.
 
-    Receives AssessmentPassedMessage, generates personalised post-pass advice
-    (feedback, official cert URL, next cert, reinforcement schedule), emits
-    the advice as a chat message, and ends the run with status="passed".
+    Receives AssessmentPassedMessage, generates a structured AdvisorResult JSON,
+    stores it in state.advisor_result, and ends the run.
     """
 
     def __init__(self) -> None:
         super().__init__(id="certification_advisor")
-        from agents.advisor import create_certification_advisor_agent  # noqa: PLC0415
+        from agents.curator import create_kb_mcp_tool  # noqa: PLC0415
 
-        self._advisor = create_certification_advisor_agent(_build_client())
+        self._client = _build_client()
+        self._kb_mcp_tool = create_kb_mcp_tool()
 
     @handler
     async def handle(
@@ -1803,33 +1822,120 @@ class CertificationAdvisorExecutor(Executor):
         message: AssessmentPassedMessage,
         ctx: WorkflowContext,
     ) -> None:
+        from agents.advisor import generate_advice  # noqa: PLC0415
+        from agents.tools.advisor_tools import get_team_benchmark  # noqa: PLC0415
+
         state = message.state
         latest = state.assessment_results[-1] if state.assessment_results else None
-
         score = latest.score if latest else 0.0
-        weak_areas = latest.weak_areas if latest else []
 
         logger.info(
-            "[advisor] Generating post-pass advice for learner=%s score=%.1f",
+            "[advisor] Generating structured advice for learner=%s score=%.1f status=%s",
             state.learner.learner_id,
             score,
+            state.workflow_status,
         )
 
         cert_id = state.recommended_cert_id or "AZ-900"
-        with trace_agent_invocation("certification_advisor", state.learner.learner_id):
-            advice = await self._advisor.generate(
-                score=score,
-                weak_areas=weak_areas,
-                learner_role=state.learner.role,
-                recommended_cert_id=cert_id,
-            )
 
-        state.workflow_status = "passed"
+        # Retrieve full questions (with bloom_level, difficulty, is_scenario_based, correct_answers)
+        raw_questions = ctx.get_state("assessment_questions_full") or []
+        full_questions = [AssessmentQuestion.model_validate(q) for q in raw_questions]
+
+        kb_capture = _KBCaptureMiddleware()
+
+        with trace_agent_invocation("certification_advisor", state.learner.learner_id):
+            try:
+                kb_mcp = getattr(self, "_kb_mcp_tool", None)
+                if kb_mcp is not None:
+                    async with kb_mcp:
+                        kb_functions = list(getattr(kb_mcp, "functions", []) or [])
+                        result, raw = await generate_advice(
+                            cert_id=cert_id,
+                            learner_id=state.learner.learner_id,
+                            workflow_status=state.workflow_status,
+                            assessment_questions=full_questions,
+                            assessment_answers=state.assessment_answers,
+                            assessment_results=state.assessment_results,
+                            team_benchmark_tool=get_team_benchmark,
+                            kb_mcp_functions=kb_functions,
+                            middleware=[kb_capture, _MCPLoggingMiddleware()],
+                            client=self._client,
+                        )
+                else:
+                    result, raw = await generate_advice(
+                        cert_id=cert_id,
+                        learner_id=state.learner.learner_id,
+                        workflow_status=state.workflow_status,
+                        assessment_questions=full_questions,
+                        assessment_answers=state.assessment_answers,
+                        assessment_results=state.assessment_results,
+                        team_benchmark_tool=get_team_benchmark,
+                        kb_mcp_functions=None,
+                        middleware=[kb_capture, _MCPLoggingMiddleware()],
+                        client=self._client,
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.error("[advisor] generate_advice raised unexpectedly (%s); building fallback", exc)
+                from agents.advisor import _build_fallback_advisor_result, _compute_domain_table, _compute_performance_snapshot  # noqa: PLC0415
+                from agents.tools.advisor_tools import percentile_rank  # noqa: PLC0415
+                from agents.tools.advisor_tools import _BENCHMARKS  # noqa: PLC0415
+
+                latest_r = state.assessment_results[-1] if state.assessment_results else None
+                perf = _compute_performance_snapshot(full_questions, latest_r.per_question_results if latest_r else [])
+                dt = _compute_domain_table(full_questions, latest_r.per_question_results if latest_r else [])
+                raw_bench = _BENCHMARKS.get(cert_id.upper(), {})
+                result = _build_fallback_advisor_result(
+                    cert_id=cert_id,
+                    scenario="passed" if state.workflow_status == "passed" else "max_retries",
+                    score=latest_r.score if latest_r else 0.0,
+                    passed=latest_r.passed if latest_r else False,
+                    passing_score=latest_r.passing_score if latest_r else 70.0,
+                    attempt=latest_r.attempt if latest_r else 1,
+                    domain_table=dt,
+                    perf_snapshot=perf,
+                    team_percentile=percentile_rank(latest_r.score if latest_r else 0.0, raw_bench.get("score_distribution", [])),
+                    team_avg_score=raw_bench.get("team_avg_score", 70.0),
+                    sample_size=raw_bench.get("sample_size", 0),
+                    has_benchmark=bool(raw_bench),
+                    assessment_results=state.assessment_results,
+                )
+                raw = ""
+
+        # Capture KB activity
+        kb_refs = [
+            GroundingReference(
+                title=r.get("title", "KB Document"),
+                url=r.get("url", ""),
+                type=r.get("type", "document"),
+                score=r.get("score"),
+            )
+            for r in kb_capture.references
+        ]
+        state.kb_activity = (
+            KBActivity(
+                query=kb_capture.query,
+                response_text=kb_capture.response_text,
+                references=kb_refs,
+            )
+            if kb_capture.query
+            else None
+        )
+
+        if state.workflow_status != "max_retries_reached":
+            state.workflow_status = "passed"
         state.current_agent = "certification_advisor"
-        state.kb_activity = None
+        state.advisor_result = result.model_dump()
+        state.advisor_result_raw = raw
         ctx.set_state("workflow_state", state.model_dump())
         await ctx.yield_output(StateSnapshotEvent(snapshot=state.model_dump()))
-        await _yield_text(ctx, advice)
+        summary_text = (
+            f"Your certification advisor report is ready. "
+            f"Score: {result.score_summary.score:.1f}% — "
+            f"{'Passed' if result.score_summary.passed else 'Not passed'}. "
+            f"See the Advisor tab for your personalized analysis."
+        )
+        await _yield_text(ctx, summary_text)
         # Run ends here — no further routing needed
 
 
@@ -1844,7 +1950,9 @@ def build_learner_workflow() -> Any:
     The graph is: seed -> curator -> study_plan -> engagement -> hitl_gate
     HITL NO branch: hitl_gate -> engagement (loop, max 3)
     HITL YES branch: hitl_gate -> assessment
-    Assessment FAIL+retry: assessment -> curator (loop)
+    Assessment FAIL + retry available: seed re-sends HITLConfirmedMessage -> assessment (max 1 retry)
+    Assessment FAIL + max retries reached: assessment -> advisor
+    Assessment PASS: assessment -> advisor
 
     SeedExecutor is the start_executor so it receives the list[Message] that
     agent_framework_ag_ui passes as the seed and converts it to LearnerMessage.
