@@ -1584,8 +1584,13 @@ class AssessmentExecutor(Executor):
         # Stash reasoning_distribution for handle_answers
         ctx.set_state("assessment_reasoning_distribution", reasoning)
 
-        # Store full questions (with correct answers) in MAF context — never sent to frontend
-        ctx.set_state("assessment_questions_full", [q.model_dump() for q in questions])
+        # Store full questions (with correct answers) in MAF context and in the
+        # cross-invocation session store so handle_answers can retrieve them even
+        # when the Foundry Hosted Agent creates a fresh MAF context per request.
+        serialized_questions = [q.model_dump() for q in questions]
+        ctx.set_state("assessment_questions_full", serialized_questions)
+        import session_store  # noqa: PLC0415
+        session_store.set_key(state.learner.learner_id, "assessment_questions_full", serialized_questions)
 
         # Build public projection — strip correct_answers; include grounding_reference
         public_questions = [
@@ -1648,8 +1653,12 @@ class AssessmentExecutor(Executor):
 
         state = message.state
 
-        # Retrieve full questions (with correct answers) from MAF context
-        raw_questions = ctx.get_state("assessment_questions_full") or []
+        # Retrieve full questions (with correct answers) from MAF context.
+        # Fall back to the cross-invocation session store when the MAF context is
+        # fresh (e.g. Foundry Hosted Agent creates a new context per request).
+        import session_store  # noqa: PLC0415
+        raw_questions = ctx.get_state("assessment_questions_full") or \
+            session_store.get(state.learner.learner_id).get("assessment_questions_full") or []
         full_questions = [AssessmentQuestion.model_validate(q) for q in raw_questions]
 
         if not full_questions:
@@ -1839,7 +1848,9 @@ class CertificationAdvisorExecutor(Executor):
         cert_id = state.recommended_cert_id or "AZ-900"
 
         # Retrieve full questions (with bloom_level, difficulty, is_scenario_based, correct_answers)
-        raw_questions = ctx.get_state("assessment_questions_full") or []
+        import session_store  # noqa: PLC0415
+        raw_questions = ctx.get_state("assessment_questions_full") or \
+            session_store.get(state.learner.learner_id).get("assessment_questions_full") or []
         full_questions = [AssessmentQuestion.model_validate(q) for q in raw_questions]
 
         kb_capture = _KBCaptureMiddleware()

@@ -32,15 +32,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import session_store
 from api.middleware import LearnRequestValidationMiddleware
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# In-memory session store — maps session_id -> partial WorkflowState overrides
-# ---------------------------------------------------------------------------
-
-_sessions: dict[str, dict] = {}
 
 # ---------------------------------------------------------------------------
 # CORS origins
@@ -106,9 +101,7 @@ class _SelectModulesBody(BaseModel):
 @app.post("/session/{session_id}/select-modules", tags=["session"])
 async def select_modules(session_id: str, body: _SelectModulesBody) -> dict[str, bool]:
     """Store the learner's selected module IDs for the given session."""
-    if session_id not in _sessions:
-        _sessions[session_id] = {}
-    _sessions[session_id]["selected_module_ids"] = body.module_ids
+    session_store.set_key(session_id, "selected_module_ids", body.module_ids)
     return {"ok": True}
 
 
@@ -141,19 +134,23 @@ def _make_learner_workflow_class() -> type:
             raw_state = input_data.get("state")
             if raw_state and isinstance(raw_state, dict):
                 learner_id = (raw_state.get("learner") or {}).get("learner_id", "")
-                if learner_id and learner_id in _sessions:
-                    overrides = _sessions[learner_id]
-                    raw_state = {**raw_state, **overrides}
+                session_data = session_store.get(learner_id) if learner_id else {}
+                if session_data:
+                    raw_state = {**raw_state, **session_data}
                     logger.debug(
                         "[LearnerWorkflow] Merged session overrides for learner=%s: %s",
                         learner_id,
-                        list(overrides.keys()),
+                        list(session_data.keys()),
                     )
                 thread_id = self._thread_id_from_input(input_data)
                 workflow = self._resolve_workflow(thread_id)
                 # State.set() writes to _pending; State.get() reads _pending first,
                 # so the value is visible to ctx.get_state() in SeedExecutor immediately.
                 workflow._state.set("workflow_state", raw_state)
+                # Re-inject cross-invocation session keys directly into the MAF ctx state
+                # so dispatchers can retrieve them via ctx.get_state() without extra imports.
+                if "assessment_questions_full" in session_data:
+                    workflow._state.set("assessment_questions_full", session_data["assessment_questions_full"])
                 logger.debug("[LearnerWorkflow] Pre-seeded workflow_state from input_data")
             async for event in super().run(input_data):
                 yield event
